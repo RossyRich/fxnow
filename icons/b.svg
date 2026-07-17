@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- B案: ライブパルス — 「今この瞬間」を発信する電波/レーダー -->
+  <rect width="180" height="180" fill="#0c0f16"/>
+  <g fill="none" stroke="#ff5c6c">
+    <circle cx="90" cy="90" r="26" stroke-width="7" opacity="1"/>
+    <circle cx="90" cy="90" r="46" stroke-width="5" opacity=".55"/>
+    <circle cx="90" cy="90" r="66" stroke-width="4" opacity=".28"/>
+    <circle cx="90" cy="90" r="84" stroke-width="3" opacity=".14"/>
+  </g>
+  <circle cx="90" cy="90" r="11" fill="#ff5c6c"/>
+  <!-- 通貨の上下を示す小さな対のティック -->
+  <path d="M84 61 L90 51 L96 61 Z" fill="#e8ebf2"/>
+  <path d="M84 119 L90 129 L96 119 Z" fill="#4da3ff"/>
+  <text x="14" y="168" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="22"
+        font-weight="800" letter-spacing="1" fill="#e8ebf2">FX<tspan fill="#ff5c6c">now</tspan></text>
+</svg>

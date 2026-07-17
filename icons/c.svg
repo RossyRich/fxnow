@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- C案: エディトリアル・タイポ — 雑誌の表紙のような文字組み -->
+  <rect width="180" height="180" fill="#0c0f16"/>
+  <text x="16" y="86" font-family="Futura,'Avenir Next Condensed',-apple-system,sans-serif"
+        font-size="72" font-weight="800" letter-spacing="-2" fill="#e8ebf2">FX</text>
+  <rect x="16" y="100" width="148" height="4" fill="#232b3d"/>
+  <text x="16" y="150" font-family="Futura,'Avenir Next Condensed',-apple-system,sans-serif"
+        font-size="46" font-weight="800" letter-spacing="0" fill="#ff5c6c">now</text>
+  <!-- 点滅カーソル=リアルタイム -->
+  <rect x="124" y="114" width="11" height="36" fill="#e8ebf2"/>
+  <!-- 右上のライブドット -->
+  <circle cx="156" cy="30" r="8" fill="#3ddc84"/>
+</svg>

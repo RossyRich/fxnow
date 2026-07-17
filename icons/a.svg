@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- A案: センチメントリング — サイトの象徴であるドーナツをそのままアイコンに -->
+  <rect width="180" height="180" fill="#0c0f16"/>
+  <!-- 下地リング -->
+  <circle cx="90" cy="88" r="52" fill="none" stroke="#232b3d" stroke-width="18"/>
+  <!-- 買い(赤) 62% / 売り(青) 38% -->
+  <circle cx="90" cy="88" r="52" fill="none" stroke="#ff5c6c" stroke-width="18"
+          stroke-dasharray="199 128" stroke-dashoffset="0" transform="rotate(-90 90 88)"/>
+  <circle cx="90" cy="88" r="52" fill="none" stroke="#4da3ff" stroke-width="18"
+          stroke-dasharray="120 207" stroke-dashoffset="-203" transform="rotate(-90 90 88)"/>
+  <!-- 中心のライブドット -->
+  <circle cx="90" cy="88" r="7" fill="#3ddc84"/>
+  <circle cx="90" cy="88" r="13" fill="none" stroke="#3ddc84" stroke-width="2" opacity=".35"/>
+  <text x="90" y="164" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="24"
+        font-weight="800" letter-spacing="2" fill="#e8ebf2" text-anchor="middle">FX<tspan fill="#ff5c6c">now</tspan></text>
+</svg>

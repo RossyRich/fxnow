@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- E案: ローソク足ナウ — チャートの「現在」を切り取る -->
+  <rect width="180" height="180" fill="#0c0f16"/>
+  <!-- グリッド -->
+  <g stroke="#1a2130" stroke-width="1">
+    <line x1="0" y1="45" x2="180" y2="45"/>
+    <line x1="0" y1="90" x2="180" y2="90"/>
+    <line x1="0" y1="135" x2="180" y2="135"/>
+  </g>
+  <!-- ローソク足: 青→青→赤→赤(進行中) -->
+  <g>
+    <line x1="38" y1="38" x2="38" y2="110" stroke="#4da3ff" stroke-width="4"/>
+    <rect x="27" y="52" width="22" height="42" rx="3" fill="#4da3ff"/>
+    <line x1="76" y1="60" x2="76" y2="128" stroke="#4da3ff" stroke-width="4"/>
+    <rect x="65" y="74" width="22" height="36" rx="3" fill="#4da3ff"/>
+    <line x1="114" y1="52" x2="114" y2="122" stroke="#ff5c6c" stroke-width="4"/>
+    <rect x="103" y="64" width="22" height="44" rx="3" fill="#ff5c6c"/>
+    <line x1="152" y1="26" x2="152" y2="96" stroke="#ff5c6c" stroke-width="4"/>
+    <rect x="141" y="38" width="22" height="38" rx="3" fill="#ff5c6c"/>
+  </g>
+  <!-- 現在価格ライン -->
+  <line x1="0" y1="38" x2="180" y2="38" stroke="#ffd166" stroke-width="3" stroke-dasharray="8 6"/>
+  <circle cx="152" cy="38" r="6" fill="#ffd166"/>
+  <text x="14" y="166" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="22"
+        font-weight="800" letter-spacing="1" fill="#e8ebf2">FX<tspan fill="#ff5c6c">now</tspan></text>
+</svg>
