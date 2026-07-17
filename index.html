@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FXスカウト — FX RECON / LIVE</title>
+<style>
+  :root {
+    --bg: #0c0f16;
+    --panel: #121722;
+    --panel2: #171d2b;
+    --line: #232b3d;
+    --ink: #e8ebf2;
+    --ink2: #9aa3b5;
+    --ink3: #626c80;
+    --buy: #ff5c6c;
+    --sell: #4da3ff;
+    --neutral: #3d4457;
+    --accent: #ffd166;
+    font-size: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-feature-settings: "tnum";
+    line-height: 1.6;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px 60px; }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    padding: 22px 0 14px; border-bottom: 1px solid var(--line);
+  }
+  .brand { font-size: 1.5rem; font-weight: 800; letter-spacing: .04em; }
+  .brand small { color: var(--buy); }
+  .tagline { font-size: .68rem; letter-spacing: .28em; color: var(--ink3); text-transform: uppercase; }
+  .updated { margin-left: auto; font-size: .72rem; color: var(--ink2); }
+  .updated .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#3ddc84; margin-right:6px; animation: blink 2.4s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  /* ---------- section titles ---------- */
+  h2 {
+    display: flex; align-items: baseline; gap: 10px;
+    font-size: .82rem; letter-spacing: .18em; color: var(--ink2);
+    margin: 34px 0 14px; text-transform: uppercase;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  h2 b { color: var(--ink); font-size: 1rem; letter-spacing: .06em; }
+
+  /* ---------- sentiment board ---------- */
+  .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 12px; margin-top: 18px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 16px 14px;
+  }
+  .card .pair { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .card .pair .jp { font-weight: 700; font-size: 1.02rem; white-space: nowrap; line-height: 1.3; }
+  .card .pair .sym { font-size: .66rem; color: var(--ink3); letter-spacing: .12em; }
+  .card .rate { text-align: right; font-size: .8rem; line-height: 1.3; }
+  .card .rate .px { font-weight: 700; font-size: .95rem; }
+  .card .rate .chg { font-size: .7rem; }
+  .up { color: var(--buy); } .down { color: var(--sell); } .flat { color: var(--ink2); }
+
+  .donut-row { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+  .donut { position: relative; width: 118px; height: 118px; flex: none; }
+  .donut svg { transform: rotate(-90deg); }
+  .donut .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .donut .center .big { font-size: 1.45rem; font-weight: 800; line-height: 1.1; }
+  .donut .center .lbl { font-size: .6rem; color: var(--ink2); letter-spacing: .1em; }
+  .legend { font-size: .74rem; color: var(--ink2); display: grid; gap: 4px; }
+  .legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+  .legend b { color: var(--ink); font-weight: 700; }
+
+  .meter { margin-top: 13px; }
+  .meter .m-head { display: flex; justify-content: space-between; font-size: .66rem; color: var(--ink3); letter-spacing: .08em; margin-bottom: 4px; }
+  .meter .bar { display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: var(--neutral); }
+  .meter .bar i { display: block; height: 100%; }
+  .meter .bar .l { background: var(--buy); border-right: 2px solid var(--bg); }
+  .meter .bar .s { background: var(--sell); }
+  .meter .m-val { display: flex; justify-content: space-between; font-size: .72rem; margin-top: 3px; }
+  .note { font-size: .66rem; color: var(--ink3); margin-top: 14px; line-height: 1.7; }
+
+  /* ---------- filters ---------- */
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink2);
+    font-size: .74rem; padding: 5px 12px; border-radius: 999px; cursor: pointer;
+    font-family: inherit;
+  }
+  .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+
+  /* ---------- posts ---------- */
+  .posts { display: grid; gap: 8px; }
+  .post {
+    display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 11px 14px; transition: border-color .15s;
+  }
+  .post:hover { border-color: var(--ink3); }
+  .post .meta { display: flex; align-items: center; gap: 8px; font-size: .68rem; color: var(--ink3); flex-wrap: wrap; }
+  .post .meta .who { color: var(--ink2); font-weight: 600; }
+  .post .body { font-size: .84rem; margin-top: 4px; color: var(--ink); word-break: break-word; }
+  .tag { font-size: .62rem; padding: 1px 8px; border-radius: 999px; font-weight: 700; letter-spacing: .06em; }
+  .tag.buy { background: rgba(255,92,108,.15); color: var(--buy); }
+  .tag.sell { background: rgba(77,163,255,.15); color: var(--sell); }
+  .tag.neutral { background: rgba(154,163,181,.12); color: var(--ink2); }
+  .tag.pairtag { background: var(--panel2); color: var(--ink2); font-weight: 600; }
+  .more { text-align: center; margin-top: 12px; }
+
+  /* ---------- news ---------- */
+  .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .news-grid { grid-template-columns: 1fr; } }
+  .news-col h3 { font-size: .7rem; letter-spacing: .2em; color: var(--ink3); margin-bottom: 10px; text-transform: uppercase; }
+  .news-list { border-top: 1px solid var(--line); }
+  .news-item { display: block; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+  .news-item:hover .t { color: var(--accent); }
+  .news-item .t { font-size: .84rem; transition: color .15s; }
+  .news-item .d { font-size: .66rem; color: var(--ink3); margin-top: 1px; }
+
+  /* ---------- calendar ---------- */
+  table.cal { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  table.cal th { text-align: left; font-size: .64rem; letter-spacing: .14em; color: var(--ink3); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); text-transform: uppercase; }
+  table.cal td { padding: 8px; border-bottom: 1px solid var(--line); }
+  table.cal .imp-High { color: var(--buy); font-weight: 700; }
+  table.cal .imp-Medium { color: var(--accent); }
+  .ccy { font-size: .66rem; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; letter-spacing: .08em; }
+  .empty { color: var(--ink3); font-size: .8rem; padding: 14px 2px; }
+
+  footer { margin-top: 46px; padding-top: 16px; border-top: 1px solid var(--line); font-size: .66rem; color: var(--ink3); line-height: 1.9; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">FX<small>スカウト</small></div>
+    <div class="tagline">FX RECON — LIVE</div>
+    <div class="updated"><span class="dot"></span><span id="updated">読込中…</span></div>
+  </header>
+
+  <h2><b>売買目線</b>SENTIMENT — 4 PAIRS</h2>
+  <div class="board" id="board"></div>
+  <p class="note">
+    ドーナツ＝Xの投稿（Yahoo!リアルタイム検索経由）を売買ワードで自動判定した割合。中央の%は買い・売りに絞った買い比率。<br>
+    下段バー＝海外ブローカー10社の実際のポジション比率（FXSSI集計）。約10分ごとに自動更新。
+  </p>
+
+  <h2><b>Xの投稿</b>SNS FEED</h2>
+  <div class="chips" id="pairChips"></div>
+  <div class="chips" id="stanceChips"></div>
+  <div class="posts" id="posts"></div>
+  <div class="more"><button class="chip" id="moreBtn">もっと見る</button></div>
+
+  <h2><b>ニュース</b>NEWS</h2>
+  <div class="news-grid">
+    <div class="news-col">
+      <h3>為替ニュース（みんかぶFX）</h3>
+      <div class="news-list" id="newsJp"></div>
+    </div>
+    <div class="news-col">
+      <h3>ForexLive（英語・速報）</h3>
+      <div class="news-list" id="newsEn"></div>
+    </div>
+  </div>
+
+  <h2><b>経済指標</b>CALENDAR — 48H</h2>
+  <table class="cal">
+    <thead><tr><th>日時(JST)</th><th>通貨</th><th>指標</th><th>重要度</th><th>予想</th><th>前回</th></tr></thead>
+    <tbody id="cal"></tbody>
+  </table>
+
+  <footer>
+    データ源: FXSSI（ポジション比率）／Yahoo!リアルタイム検索（Xポスト）／みんかぶFX・ForexLive（ニュース）／ForexFactory（経済指標）／GMOコイン公開API（レート）。<br>
+    本サイトは情報の自動収集・表示のみを行うものであり、投資助言ではありません。投稿の売買判定は機械的なキーワード判定であり正確性を保証しません。投資判断はご自身の責任でお願いします。
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  var PAIR_LABELS = { USDJPY: "ドル円", EURUSD: "ユーロドル", GBPUSD: "ポンドドル", AUDUSD: "豪ドル" };
+  var state = { pair: "ALL", stance: "ALL", limit: 20, data: null };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function donutSVG(buy, sell, neutral) {
+    var total = buy + sell + neutral;
+    var r = 48, cx = 59, cy = 59, C = 2 * Math.PI * r;
+    if (!total) {
+      return '<svg width="118" height="118"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--neutral)" stroke-width="13"/></svg>';
+    }
+    var segs = [
+      { v: buy, c: "var(--buy)" },
+      { v: sell, c: "var(--sell)" },
+      { v: neutral, c: "var(--neutral)" }
+    ];
+    var off = 0, out = '<svg width="118" height="118">';
+    segs.forEach(function (s) {
+      if (!s.v) return;
+      var len = C * s.v / total;
+      var gap = (s.v < total) ? 2 : 0;   // セグメント間に地色の隙間
+      out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + s.c +
+        '" stroke-width="13" stroke-dasharray="' + Math.max(len - gap, 0.5) + ' ' + (C - len + gap) +
+        '" stroke-dashoffset="' + (-off) + '" stroke-linecap="butt"/>';
+      off += len;
+    });
+    return out + "</svg>";
+  }
+
+  function chgClass(chg) {
+    if (!chg) return "flat";
+    return chg.charAt(0) === "+" ? "up" : (chg.charAt(0) === "-" ? "down" : "flat");
+  }
+
+  function renderBoard(d) {
+    var html = d.pairs.map(function (p) {
+      var s = p.sns, active = s.buy + s.sell;
+      var buyPct = active ? Math.round(100 * s.buy / active) : null;
+      var rate = p.price
+        ? '<div class="rate"><div class="px">' + esc(p.price.price) + '</div>' +
+          (p.price.change ? '<div class="chg ' + chgClass(p.price.change) + '">' + esc(p.price.change) + ' (' + esc(p.price.changePct) + ')</div>' : "") + "</div>"
+        : "";
+      var broker = p.broker
+        ? '<div class="meter"><div class="m-head"><span>実ポジション比率（FXSSI）</span></div>' +
+          '<div class="bar"><i class="l" style="width:' + p.broker.long + '%"></i><i class="s" style="flex:1"></i></div>' +
+          '<div class="m-val"><span class="up">ロング ' + p.broker.long + '%</span><span class="down">ショート ' + p.broker.short + "%</span></div></div>"
+        : "";
+      return '<div class="card">' +
+        '<div class="pair"><div><div class="jp">' + esc(p.label) + '</div><div class="sym">' + esc(p.symbol) + "</div></div>" + rate + "</div>" +
+        '<div class="donut-row">' +
+          '<div class="donut">' + donutSVG(s.buy, s.sell, s.neutral) +
+            '<div class="center">' +
+              (buyPct === null
+                ? '<div class="big flat">—</div><div class="lbl">判定なし</div>'
+                : '<div class="big ' + (buyPct >= 50 ? "up" : "down") + '">' + buyPct + '%</div><div class="lbl">買い目線</div>') +
+            "</div></div>" +
+          '<div class="legend">' +
+            '<div><span class="sw" style="background:var(--buy)"></span>買い <b>' + s.buy + "</b>件</div>" +
+            '<div><span class="sw" style="background:var(--sell)"></span>売り <b>' + s.sell + "</b>件</div>" +
+            '<div><span class="sw" style="background:var(--neutral)"></span>中立 <b>' + s.neutral + "</b>件</div>" +
+          "</div></div>" + broker + "</div>";
+    }).join("");
+    document.getElementById("board").innerHTML = html;
+  }
+
+  function chipRow(el, items, cur, onpick) {
+    el.innerHTML = items.map(function (it) {
+      return '<button class="chip' + (it.v === cur ? " on" : "") + '" data-v="' + it.v + '">' + it.t + "</button>";
+    }).join("");
+    Array.prototype.forEach.call(el.querySelectorAll(".chip"), function (b) {
+      b.onclick = function () { onpick(b.getAttribute("data-v")); };
+    });
+  }
+
+  function renderPosts(d) {
+    chipRow(document.getElementById("pairChips"),
+      [{ v: "ALL", t: "すべて" }].concat(Object.keys(PAIR_LABELS).map(function (k) { return { v: k, t: PAIR_LABELS[k] }; })),
+      state.pair, function (v) { state.pair = v; state.limit = 20; renderPosts(d); });
+    chipRow(document.getElementById("stanceChips"),
+      [{ v: "ALL", t: "全目線" }, { v: "buy", t: "買い" }, { v: "sell", t: "売り" }, { v: "neutral", t: "中立" }],
+      state.stance, function (v) { state.stance = v; state.limit = 20; renderPosts(d); });
+
+    var list = d.posts.filter(function (x) {
+      return (state.pair === "ALL" || x.pair === state.pair) &&
+             (state.stance === "ALL" || x.stance === state.stance);
+    });
+    var stanceJp = { buy: "買い", sell: "売り", neutral: "中立" };
+    var shown = list.slice(0, state.limit);
+    document.getElementById("posts").innerHTML = shown.length ? shown.map(function (x) {
+      return '<a class="post" href="' + esc(x.url) + '" target="_blank" rel="noopener">' +
+        '<div class="meta"><span class="who">' + esc(x.name) + "</span><span>@" + esc(x.screenName) + "</span>" +
+        '<span>' + esc(x.timeStr) + '</span>' +
+        '<span class="tag pairtag">' + (PAIR_LABELS[x.pair] || x.pair) + "</span>" +
+        '<span class="tag ' + x.stance + '">' + stanceJp[x.stance] + "</span></div>" +
+        '<div class="body">' + esc(x.text) + "</div></a>";
+    }).join("") : '<div class="empty">該当する投稿がありません</div>';
+    document.getElementById("moreBtn").style.display = list.length > state.limit ? "" : "none";
+    document.getElementById("moreBtn").onclick = function () { state.limit += 20; renderPosts(d); };
+  }
+
+  function renderNews(d) {
+    function items(list) {
+      return list.length ? list.map(function (n) {
+        return '<a class="news-item" href="' + esc(n.url) + '" target="_blank" rel="noopener">' +
+          '<div class="t">' + esc(n.title) + '</div><div class="d">' + esc(n.time) + "</div></a>";
+      }).join("") : '<div class="empty">取得できませんでした</div>';
+    }
+    document.getElementById("newsJp").innerHTML = items(d.newsJp || []);
+    document.getElementById("newsEn").innerHTML = items(d.newsEn || []);
+  }
+
+  function renderCal(d) {
+    var impJp = { High: "★★★", Medium: "★★" };
+    var rows = (d.calendar || []).map(function (e) {
+      return "<tr><td>" + esc(e.time) + '</td><td><span class="ccy">' + esc(e.country) + "</span></td><td>" + esc(e.title) +
+        '</td><td class="imp-' + esc(e.impact) + '">' + (impJp[e.impact] || esc(e.impact)) + "</td><td>" + esc(e.forecast || "—") + "</td><td>" + esc(e.previous || "—") + "</td></tr>";
+    }).join("");
+    document.getElementById("cal").innerHTML = rows || '<tr><td colspan="6" class="empty">直近48時間に主要指標はありません</td></tr>';
+  }
+
+  function render(d) {
+    if (!d) return;
+    state.data = d;
+    document.getElementById("updated").textContent = "更新 " + d.updatedAt;
+    renderBoard(d);
+    renderPosts(d);
+    renderNews(d);
+    renderCal(d);
+  }
+
+  function refresh() {
+    fetch("data.json?ts=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(render)
+      .catch(function () { if (!state.data) render(window.FX_DATA); });
+  }
+
+  render(window.FX_DATA);          // file:// でも即表示
+  if (location.protocol.indexOf("http") === 0) {
+    refresh();
+    setInterval(refresh, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) refresh();
+    });
+  }
+})();
+</script>
+</body>
+</html>
