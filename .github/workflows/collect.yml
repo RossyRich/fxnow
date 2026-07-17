@@ -2,7 +2,7 @@ name: collect
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # 約10分ごと（GitHub側の混雑で数分遅れることあり）
+    - cron: "*/5 * * * *"   # 約5分ごと（GitHub側の混雑で数分遅れることあり）
   workflow_dispatch:
 
 permissions:
