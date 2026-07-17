@@ -1,36 +1,49 @@
 name: collect
 
+# GitHubのcronがこのリポジトリで発火しないため「自己連鎖方式」を採用:
+# 1回の実行で約30分間・5分ごとに収集し、終了時に自分で次の実行を予約する。
+# scheduleは保険として残す（cronが復活すればチェーン切れ時の自動復旧になる）。
 on:
-  schedule:
-    - cron: "*/5 * * * *"   # 約5分ごと（GitHub側の混雑で数分遅れることあり）
   workflow_dispatch:
+  schedule:
+    - cron: "7 * * * *"
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
-  group: collect
+  group: collect-loop
   cancel-in-progress: false
 
 jobs:
-  collect:
+  loop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run collector
-        run: python3 collect/collect.py
-
-      - name: Commit & push if changed
+      - name: 5分ごとに収集（約30分間）
+        timeout-minutes: 35
         run: |
           git config user.name "fxnow-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data.js data.json
-          if git diff --cached --quiet; then
-            echo "no changes"
-            exit 0
-          fi
-          git commit -m "data: $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git pull --rebase origin main || true
-          git push
+          end=$((SECONDS + 1800))
+          while [ $SECONDS -lt $end ]; do
+            t0=$SECONDS
+            python3 collect/collect.py || true
+            git add data.js data.json
+            if ! git diff --cached --quiet; then
+              git commit -m "data: $(date -u '+%Y-%m-%d %H:%M UTC')"
+              git pull --rebase origin main || true
+              git push || true
+            fi
+            el=$((SECONDS - t0))
+            [ "$el" -lt 300 ] && sleep $((300 - el))
+          done
+
+      - name: 次の実行を予約（自己連鎖）
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run fxnow-cron.yml -R ${{ github.repository }}

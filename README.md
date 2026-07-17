@@ -1,6 +1,6 @@
 # FXnow — リアルタイムFX情報
 
-FXの売買目線とニュースを約10分ごとに自動収集して表示するサイト。
+FXの売買目線とニュースを約5分ごとに自動収集して表示するサイト。
 
 **公開URL**: https://rossyrich.github.io/fxnow/
 
@@ -9,7 +9,7 @@ FXの売買目線とニュースを約10分ごとに自動収集して表示す�
 - `index.html` — 閲覧画面（PC/スマホ対応、単体でfile://でも開ける）
 - `data.js` / `data.json` — 収集データ（GitHub Actionsが自動更新）
 - `collect/collect.py` — 収集スクリプト（Python標準ライブラリのみ、依存なし）
-- `.github/workflows/collect.yml` — 10分ごとの自動収集ワークフロー
+- `.github/workflows/collect.yml` — 5分ごとの自動収集ワークフロー（自己連鎖方式）
 
 ## データ源
 
