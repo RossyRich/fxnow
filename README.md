@@ -1,8 +1,8 @@
-# FXスカウト — FX RECON / LIVE
+# FXnow — リアルタイムFX情報
 
 FXの売買目線とニュースを約10分ごとに自動収集して表示するサイト。
 
-**公開URL**: https://rossyrich.github.io/fx-scout/
+**公開URL**: https://rossyrich.github.io/fxnow/
 
 ## 構成
 
