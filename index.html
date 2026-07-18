@@ -6,6 +6,11 @@
 <title>FXnow — リアルタイムFX情報</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icons/d.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0c0f16">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="FXnow">
 <style>
   :root {
     --bg: #0c0f16;
@@ -132,6 +137,47 @@
   .empty { color: var(--ink3); font-size: .8rem; padding: 14px 2px; }
 
   footer { margin-top: 46px; padding-top: 16px; border-top: 1px solid var(--line); font-size: .66rem; color: var(--ink3); line-height: 1.9; }
+
+  /* ---------- ホーム画面追加の案内 ---------- */
+  .a2hs-bar {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 12px; padding: 9px 14px;
+    background: var(--panel); border: 1px dashed var(--line); border-radius: 8px;
+    font-size: .76rem; color: var(--ink2); cursor: pointer; width: 100%;
+    font-family: inherit; transition: border-color .15s;
+  }
+  .a2hs-bar:hover { border-color: var(--ink3); }
+  .a2hs-bar b { color: var(--ink); }
+  .a2hs-bar .arrow { color: var(--buy); font-weight: 700; }
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(4,6,10,.72); z-index: 50;
+    display: none; align-items: flex-end; justify-content: center; padding: 16px;
+  }
+  .modal-bg.open { display: flex; }
+  @media (min-width: 600px) { .modal-bg { align-items: center; } }
+  .modal {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 14px;
+    max-width: 420px; width: 100%; max-height: 86vh; overflow-y: auto;
+    padding: 20px 20px 18px; position: relative;
+  }
+  .modal .close {
+    position: absolute; top: 10px; right: 12px; background: none; border: none;
+    color: var(--ink3); font-size: 1.3rem; cursor: pointer; padding: 4px 8px; font-family: inherit;
+  }
+  .modal h3 { font-size: .95rem; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+  .modal h3 img { width: 34px; height: 34px; border-radius: 8px; }
+  .modal .sub { font-size: .72rem; color: var(--ink2); margin-bottom: 14px; line-height: 1.7; }
+  .modal h4 {
+    font-size: .72rem; letter-spacing: .12em; color: var(--ink2);
+    margin: 14px 0 8px; padding-top: 12px; border-top: 1px solid var(--line);
+  }
+  .modal h4:first-of-type { border-top: none; padding-top: 0; }
+  .modal ol { margin: 0 0 4px 1.3em; font-size: .8rem; line-height: 1.9; }
+  .modal ol .key {
+    display: inline-block; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 5px; padding: 0 7px; font-size: .74rem; color: var(--ink);
+  }
+  .modal .tip { font-size: .68rem; color: var(--ink3); margin-top: 10px; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -141,6 +187,31 @@
     <div class="tagline">REAL-TIME FX SENTIMENT</div>
     <div class="updated"><span class="dot"></span><span id="updated">読込中…</span></div>
   </header>
+
+  <button class="a2hs-bar" id="a2hsBar">
+    📱 スマホで使う方はこちら — <b>ホーム画面に追加</b><span class="arrow">›</span>
+  </button>
+
+  <div class="modal-bg" id="a2hsModal">
+    <div class="modal">
+      <button class="close" id="a2hsClose">✕</button>
+      <h3><img src="apple-touch-icon.png" alt="">ホーム画面に追加する</h3>
+      <p class="sub">追加すると専用アイコンからワンタップで開け、全画面のアプリのように使えます。表示は5分ごとに自動更新されます。</p>
+      <h4>🍎 iPhone / iPad（Safari）</h4>
+      <ol>
+        <li>Safariでこのページを開く</li>
+        <li>画面下の共有ボタン <span class="key">↑</span> をタップ</li>
+        <li><span class="key">ホーム画面に追加</span> を選んで <span class="key">追加</span></li>
+      </ol>
+      <h4>🤖 Android（Chrome）</h4>
+      <ol>
+        <li>Chromeでこのページを開く</li>
+        <li>右上のメニュー <span class="key">⋮</span> をタップ</li>
+        <li><span class="key">ホーム画面に追加</span>（または<span class="key">アプリをインストール</span>）を選ぶ</li>
+      </ol>
+      <p class="tip">※ XやLINEなどアプリ内のブラウザで開いている場合は、いったんSafariやChromeで開き直してから操作してください。</p>
+    </div>
+  </div>
 
   <h2><b>売買目線</b>SENTIMENT — 4 PAIRS</h2>
   <div class="board" id="board"></div>
@@ -333,6 +404,18 @@
       .then(render)
       .catch(function () { if (!state.data) render(window.FX_DATA); });
   }
+
+  // ホーム画面追加の案内（すでにアプリとして起動中なら非表示）
+  (function () {
+    var bar = document.getElementById("a2hsBar");
+    var modal = document.getElementById("a2hsModal");
+    var standalone = window.matchMedia("(display-mode: standalone)").matches ||
+                     window.navigator.standalone === true;
+    if (standalone) { bar.style.display = "none"; return; }
+    bar.onclick = function () { modal.classList.add("open"); };
+    document.getElementById("a2hsClose").onclick = function () { modal.classList.remove("open"); };
+    modal.onclick = function (e) { if (e.target === modal) modal.classList.remove("open"); };
+  })();
 
   render(window.FX_DATA);          // file:// でも即表示
   if (location.protocol.indexOf("http") === 0) {
