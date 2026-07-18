@@ -36,9 +36,6 @@ PAIRS = [
     {"symbol": "AUDUSD", "label": "豪ドル/ドル", "query": "豪ドル",   "yahoo": "AUDUSD=X", "digits": 4},
 ]
 
-CAL_CURRENCIES = {"USD", "JPY", "EUR", "GBP", "AUD"}
-
-
 def fetch(url, timeout=25, headers=None):
     h = {"User-Agent": UA, "Accept-Language": "ja,en;q=0.8"}
     if headers:
@@ -215,35 +212,45 @@ def get_forexlive():
 # ---------- 5. 経済指標カレンダー（ForexFactory） ----------
 
 def get_calendar():
+    """みんかぶFXの経済指標カレンダーから本日分を取得（日本語・結果付き）"""
     items = []
     try:
-        data = json.loads(fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json"))
-        # 今週の全指標を保持（発表済みはUI側で薄く表示）
-        for ev in data:
-            if ev.get("country") not in CAL_CURRENCIES:
+        today = datetime.now(JST).strftime("%Y-%m-%d")
+        html = fetch("https://fx.minkabu.jp/indicators?date=%s&days=1" % today)
+        rows = re.findall(
+            r'<tr class="fs-s"[^>]*data_importance="(\d)"[^>]*data_country="[A-Z]+"[^>]*>(.*?)</tr>',
+            html, re.S)
+
+        def txt(s):
+            s = re.sub(r"<svg.*?</svg>", "", s, flags=re.S)
+            s = re.sub(r"<[^>]+>", " ", s)
+            return re.sub(r"\s+", " ", unescape(s)).strip()
+
+        c_short = {"アメリカ": "米", "ユーロ": "欧", "日本": "日", "イギリス": "英",
+                   "英国": "英", "カナダ": "加", "オーストラリア": "豪", "豪州": "豪",
+                   "ニュージーランド": "NZ", "中国": "中", "ドイツ": "独",
+                   "フランス": "仏", "南アフリカ": "南ア", "トルコ": "トルコ"}
+        for imp, body in rows:
+            tds = re.findall(r"<td[^>]*>(.*?)</td>", body, re.S)
+            if len(tds) < 8:
                 continue
-            if ev.get("impact") not in ("High", "Medium"):
-                continue
-            try:
-                dt = datetime.fromisoformat(ev["date"]).astimezone(JST)
-            except Exception:
-                continue
+            # 列: 0=時刻 1=国旗 2=指標名 3=重要度 4=前回変動幅 5=前回(改定) 6=予想 7=結果
+            name = txt(tds[2])
+            country, title = (name.split("・", 1) + [""])[:2] if "・" in name else ("", name)
+            country = c_short.get(country, country[:3])
             items.append({
-                "ts": dt.timestamp(),
-                "time": dt.strftime("%m/%d %H:%M"),
-                "country": ev.get("country", ""),
-                "title": ev.get("title", ""),
-                "impact": ev.get("impact", ""),
-                "forecast": ev.get("forecast", ""),
-                "previous": ev.get("previous", ""),
+                "time": txt(tds[0]),
+                "country": country,
+                "title": title,
+                "stars": int(imp),
+                "previous": txt(tds[5]),
+                "forecast": txt(tds[6]),
+                "result": txt(tds[7]),
             })
-        items.sort(key=lambda x: x["ts"])
-        for it in items:
-            del it["ts"]
-        log("calendar: %d items" % len(items))
+        log("calendar(minkabu): %d items" % len(items))
     except Exception as e:
         log("calendar failed: %r" % e)
-    return items[:60]
+    return items[:40]
 
 
 # ---------- 6. 現在レート（GMOコイン 外国為替FX公開API） ----------
