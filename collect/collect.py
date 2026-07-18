@@ -218,8 +218,7 @@ def get_calendar():
     items = []
     try:
         data = json.loads(fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json"))
-        now = datetime.now(JST)
-        end = now + timedelta(hours=48)
+        # 今週の全指標を保持（発表済みはUI側で薄く表示）
         for ev in data:
             if ev.get("country") not in CAL_CURRENCIES:
                 continue
@@ -228,8 +227,6 @@ def get_calendar():
             try:
                 dt = datetime.fromisoformat(ev["date"]).astimezone(JST)
             except Exception:
-                continue
-            if dt < now - timedelta(hours=3) or dt > end:
                 continue
             items.append({
                 "ts": dt.timestamp(),
@@ -246,7 +243,7 @@ def get_calendar():
         log("calendar: %d items" % len(items))
     except Exception as e:
         log("calendar failed: %r" % e)
-    return items[:20]
+    return items[:60]
 
 
 # ---------- 6. 現在レート（GMOコイン 外国為替FX公開API） ----------

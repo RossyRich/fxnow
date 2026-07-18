@@ -128,15 +128,31 @@
   .news-item .d { font-size: .66rem; color: var(--ink3); margin-top: 1px; }
 
   /* ---------- calendar ---------- */
-  table.cal { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  .cal-wrap { overflow-x: auto; }
+  table.cal { width: 100%; min-width: 420px; border-collapse: collapse; font-size: .8rem; }
   table.cal th { text-align: left; font-size: .64rem; letter-spacing: .14em; color: var(--ink3); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); text-transform: uppercase; }
   table.cal td { padding: 8px; border-bottom: 1px solid var(--line); }
+  table.cal tr.past td { opacity: .4; }
   table.cal .imp-High { color: var(--buy); font-weight: 700; }
   table.cal .imp-Medium { color: var(--accent); }
   .ccy { font-size: .66rem; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; letter-spacing: .08em; }
   .empty { color: var(--ink3); font-size: .8rem; padding: 14px 2px; }
 
   footer { margin-top: 46px; padding-top: 16px; border-top: 1px solid var(--line); font-size: .66rem; color: var(--ink3); line-height: 1.9; }
+
+  /* ---------- ビュー切替タブ ---------- */
+  .tabs {
+    display: flex; gap: 4px; position: sticky; top: 0; z-index: 40;
+    background: var(--bg); padding: 8px 0 0; margin-top: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    font-size: .84rem; color: var(--ink3); font-weight: 700; letter-spacing: .06em;
+    padding: 8px 14px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab.on { color: var(--ink); border-bottom-color: var(--buy); }
+  .tab .cnt { font-size: .68rem; color: var(--buy); margin-left: 3px; }
 
   /* ---------- ホーム画面追加の案内 ---------- */
   .a2hs-bar {
@@ -213,6 +229,12 @@
     </div>
   </div>
 
+  <nav class="tabs">
+    <button class="tab on" data-view="main" id="tabMain">ホーム</button>
+    <button class="tab" data-view="cal" id="tabCal">経済指標<span class="cnt" id="calCnt"></span></button>
+  </nav>
+
+  <div id="view-main">
   <h2><b>売買目線</b>SENTIMENT — 4 PAIRS</h2>
   <div class="board" id="board"></div>
   <p class="note">
@@ -238,11 +260,18 @@
     </div>
   </div>
 
-  <h2><b>経済指標</b>CALENDAR — 48H</h2>
+  </div><!-- /view-main -->
+
+  <div id="view-cal" style="display:none">
+  <h2><b>経済指標</b>CALENDAR — THIS WEEK</h2>
+  <div class="cal-wrap">
   <table class="cal">
     <thead><tr><th>日時(JST)</th><th>通貨</th><th>指標</th><th>重要度</th><th>予想</th><th>前回</th></tr></thead>
     <tbody id="cal"></tbody>
   </table>
+  </div>
+  <p class="note">今週の主要指標（重要度★★以上、対象通貨: USD/JPY/EUR/GBP/AUD）。発表済みの指標は薄く表示。</p>
+  </div><!-- /view-cal -->
 
   <footer>
     データ源: FXSSI（ポジション比率）／Yahoo!リアルタイム検索（Xポスト）／みんかぶFX・ForexLive（ニュース）／ForexFactory（経済指標）／GMOコイン公開API（レート）。<br>
@@ -370,12 +399,34 @@
 
   function renderCal(d) {
     var impJp = { High: "★★★", Medium: "★★" };
+    var now = new Date(Date.now() + 9 * 3600 * 1000);  // JST基準
+    var upcoming = 0;
     var rows = (d.calendar || []).map(function (e) {
-      return "<tr><td>" + esc(e.time) + '</td><td><span class="ccy">' + esc(e.country) + "</span></td><td>" + esc(e.title) +
+      var past = false;
+      var m = /^(\d{2})\/(\d{2}) (\d{2}):(\d{2})$/.exec(e.time || "");
+      if (m) {
+        var t = Date.UTC(now.getUTCFullYear(), +m[1] - 1, +m[2], +m[3], +m[4]);
+        past = t < now.getTime() - 30 * 60 * 1000;   // 発表30分後から「済み」扱い
+      }
+      if (!past) upcoming++;
+      return "<tr" + (past ? ' class="past"' : "") + "><td>" + esc(e.time) + '</td><td><span class="ccy">' + esc(e.country) + "</span></td><td>" + esc(e.title) +
         '</td><td class="imp-' + esc(e.impact) + '">' + (impJp[e.impact] || esc(e.impact)) + "</td><td>" + esc(e.forecast || "—") + "</td><td>" + esc(e.previous || "—") + "</td></tr>";
     }).join("");
-    document.getElementById("cal").innerHTML = rows || '<tr><td colspan="6" class="empty">直近48時間に主要指標はありません</td></tr>';
+    document.getElementById("cal").innerHTML = rows || '<tr><td colspan="6" class="empty">今週の主要指標はありません</td></tr>';
+    document.getElementById("calCnt").textContent = upcoming ? "(" + upcoming + ")" : "";
   }
+
+  // ビュー切替タブ
+  Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (t) {
+    t.onclick = function () {
+      Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (x) { x.classList.remove("on"); });
+      t.classList.add("on");
+      var v = t.getAttribute("data-view");
+      document.getElementById("view-main").style.display = (v === "main") ? "" : "none";
+      document.getElementById("view-cal").style.display = (v === "cal") ? "" : "none";
+      window.scrollTo(0, 0);
+    };
+  });
 
   function marketClosed() {
     // 土曜7:00〜月曜7:00 JST は為替市場休場（収集も休止）
