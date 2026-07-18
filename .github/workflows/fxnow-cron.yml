@@ -23,20 +23,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 5分ごとに収集（約30分間）
+      - name: 5分ごとに収集（約30分間・週末は収集せず待機）
         timeout-minutes: 35
         run: |
           git config user.name "fxnow-bot"
           git config user.email "actions@users.noreply.github.com"
+          # 為替市場が閉まる 土曜7:00 〜 月曜7:00 JST は収集を休止（連鎖は維持）
+          is_closed() {
+            dow=$(TZ=Asia/Tokyo date +%u)   # 1=月 … 6=土 7=日
+            h=$(TZ=Asia/Tokyo date +%H)
+            [ "$dow" = "6" ] && [ "$h" -ge 7 ] && return 0
+            [ "$dow" = "7" ] && return 0
+            [ "$dow" = "1" ] && [ "$h" -lt 7 ] && return 0
+            return 1
+          }
           end=$((SECONDS + 1800))
           while [ $SECONDS -lt $end ]; do
             t0=$SECONDS
-            python3 collect/collect.py || true
-            git add data.js data.json
-            if ! git diff --cached --quiet; then
-              git commit -m "data: $(date -u '+%Y-%m-%d %H:%M UTC')"
-              git pull --rebase origin main || true
-              git push || true
+            if is_closed; then
+              echo "週末休場中のため収集スキップ ($(TZ=Asia/Tokyo date '+%m/%d %H:%M JST'))"
+            else
+              python3 collect/collect.py || true
+              git add data.js data.json
+              if ! git diff --cached --quiet; then
+                git commit -m "data: $(date -u '+%Y-%m-%d %H:%M UTC')"
+                git pull --rebase origin main || true
+                git push || true
+              fi
             fi
             el=$((SECONDS - t0))
             [ "$el" -lt 300 ] && sleep $((300 - el))

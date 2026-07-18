@@ -306,10 +306,21 @@
     document.getElementById("cal").innerHTML = rows || '<tr><td colspan="6" class="empty">直近48時間に主要指標はありません</td></tr>';
   }
 
+  function marketClosed() {
+    // 土曜7:00〜月曜7:00 JST は為替市場休場（収集も休止）
+    var jst = new Date(Date.now() + 9 * 3600 * 1000);
+    var dow = jst.getUTCDay(), h = jst.getUTCHours();  // 0=日 6=土
+    return (dow === 6 && h >= 7) || dow === 0 || (dow === 1 && h < 7);
+  }
+
   function render(d) {
     if (!d) return;
     state.data = d;
-    document.getElementById("updated").textContent = "更新 " + d.updatedAt;
+    var closed = marketClosed();
+    document.getElementById("updated").textContent =
+      "更新 " + d.updatedAt + (closed ? "・週末休場中（月曜7:00再開）" : "");
+    document.querySelector(".updated .dot").style.background = closed ? "#626c80" : "";
+    document.querySelector(".updated .dot").style.animation = closed ? "none" : "";
     renderBoard(d);
     renderPosts(d);
     renderNews(d);
