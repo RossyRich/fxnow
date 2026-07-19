@@ -28,6 +28,6 @@ Xポストの買い/売り判定は `collect.py` のキーワード判定（BUY_
 
 ## 注意
 
-- 対象4通貨ペア: USDJPY / EURUSD / GBPUSD / AUDUSD
+- 対象7通貨ペア: USDJPY / EURUSD / GBPUSD / AUDUSD / EURJPY / GBPJPY / AUDJPY
 - X APIは有料のためYahoo!リアルタイム検索を経由している（kabu-scoutで実証済みの方式）
 - 投資助言ではない。フッターに免責記載

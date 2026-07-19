@@ -254,12 +254,13 @@
   </div>
 
   <nav class="tabs">
-    <button class="tab on" data-view="main" id="tabMain">ホーム</button>
+    <button class="tab on" data-view="board">売買目線</button>
+    <button class="tab" data-view="sns">Xの投稿</button>
     <button class="tab" data-view="cal" id="tabCal">経済指標<span class="cnt" id="calCnt"></span></button>
   </nav>
 
-  <div id="view-main">
-  <h2><b>売買目線</b>SENTIMENT — 4 PAIRS</h2>
+  <div id="view-board">
+  <h2><b>売買目線</b>SENTIMENT — 7 PAIRS</h2>
   <div class="board" id="board"></div>
   <p class="note">
     ドーナツ＝Xの投稿（Yahoo!リアルタイム検索経由）を売買ワードで自動判定した割合。中央の%は買い・売りに絞った買い比率。<br>
@@ -267,6 +268,9 @@
     オープンオーダー＝OANDA顧客の未約定の指値・逆指値注文の量をレート帯ごとに表示（現値±2%を24分割、<span class="down">左の青=売り注文</span>・<span class="up">右の赤=買い注文</span>、黄色の線=現在レート）。現値の上に売りの壁があれば上値の抵抗、下に買いの壁があれば下支えの目安。バーにカーソルを合わせると数値が見られます。
   </p>
 
+  </div><!-- /view-board -->
+
+  <div id="view-sns" style="display:none">
   <h2><b>Xの投稿</b>SNS FEED</h2>
   <div class="chips" id="pairChips"></div>
   <div class="chips" id="stanceChips"></div>
@@ -285,7 +289,7 @@
     </div>
   </div>
 
-  </div><!-- /view-main -->
+  </div><!-- /view-sns -->
 
   <div id="view-cal" style="display:none">
   <h2><b>本日の経済指標</b>CALENDAR — TODAY</h2>
@@ -307,7 +311,8 @@
 <script src="data.js"></script>
 <script>
 (function () {
-  var PAIR_LABELS = { USDJPY: "ドル円", EURUSD: "ユーロドル", GBPUSD: "ポンドドル", AUDUSD: "豪ドル" };
+  var PAIR_LABELS = { USDJPY: "ドル円", EURUSD: "ユーロドル", GBPUSD: "ポンドドル", AUDUSD: "豪ドル",
+                      EURJPY: "ユーロ円", GBPJPY: "ポンド円", AUDJPY: "豪ドル円" };
   var state = { pair: "ALL", stance: "ALL", limit: 20, data: null };
 
   function esc(s) {
@@ -463,13 +468,15 @@
   }
 
   // ビュー切替タブ
+  var VIEWS = { board: "view-board", sns: "view-sns", cal: "view-cal" };
   Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (t) {
     t.onclick = function () {
       Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (x) { x.classList.remove("on"); });
       t.classList.add("on");
       var v = t.getAttribute("data-view");
-      document.getElementById("view-main").style.display = (v === "main") ? "" : "none";
-      document.getElementById("view-cal").style.display = (v === "cal") ? "" : "none";
+      Object.keys(VIEWS).forEach(function (k) {
+        document.getElementById(VIEWS[k]).style.display = (k === v) ? "" : "none";
+      });
       window.scrollTo(0, 0);
     };
   });

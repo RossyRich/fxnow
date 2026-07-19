@@ -30,10 +30,13 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 PAIRS = [
-    {"symbol": "USDJPY", "label": "ドル/円",   "query": "ドル円",   "yahoo": "USDJPY=X", "digits": 2},
-    {"symbol": "EURUSD", "label": "ユーロ/ドル", "query": "ユーロドル", "yahoo": "EURUSD=X", "digits": 4},
-    {"symbol": "GBPUSD", "label": "ポンド/ドル", "query": "ポンドドル", "yahoo": "GBPUSD=X", "digits": 4},
-    {"symbol": "AUDUSD", "label": "豪ドル/ドル", "query": "豪ドル",   "yahoo": "AUDUSD=X", "digits": 4},
+    {"symbol": "USDJPY", "label": "ドル/円",   "query": "ドル円",   "digits": 2},
+    {"symbol": "EURUSD", "label": "ユーロ/ドル", "query": "ユーロドル", "digits": 4},
+    {"symbol": "GBPUSD", "label": "ポンド/ドル", "query": "ポンドドル", "digits": 4},
+    {"symbol": "AUDUSD", "label": "豪ドル/ドル", "query": "豪ドル",   "digits": 4},
+    {"symbol": "EURJPY", "label": "ユーロ/円",  "query": "ユーロ円",  "digits": 2},
+    {"symbol": "GBPJPY", "label": "ポンド/円",  "query": "ポンド円",  "digits": 2},
+    {"symbol": "AUDJPY", "label": "豪ドル/円",  "query": "豪ドル円",  "digits": 2},
 ]
 
 def fetch(url, timeout=25, headers=None):
@@ -417,7 +420,7 @@ def main():
         x = dict(x)
         x["timeStr"] = datetime.fromtimestamp(x["time"], JST).strftime("%m/%d %H:%M")
         feed.append(x)
-    feed = feed[:60]
+    feed = feed[:90]
 
     data = {
         "updatedAt": datetime.now(JST).strftime("%Y-%m-%d %H:%M JST"),
