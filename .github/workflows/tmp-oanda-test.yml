@@ -1,0 +1,16 @@
+name: tmp-oanda-test
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: OANDA API疎通確認
+        run: |
+          code=$(curl -s -o /tmp/ob.json -w "%{http_code}" -m 20 \
+            -H "X-OANDA-WIDGET-API: order-book" -H "Accept: application/json" \
+            -A "Mozilla/5.0" \
+            "https://widget.oanda.jp/api/order-book?instrument=USD_JPY&ago=0")
+          echo "HTTP $code"
+          head -c 200 /tmp/ob.json
+          [ "$code" = "200" ]

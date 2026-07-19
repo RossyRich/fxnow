@@ -91,6 +91,19 @@
   .meter .m-val { display: flex; justify-content: space-between; font-size: .72rem; margin-top: 3px; }
   .note { font-size: .66rem; color: var(--ink3); margin-top: 14px; line-height: 1.7; }
 
+  /* ---------- オープンオーダー（OANDA） ---------- */
+  .oo { margin-top: 13px; }
+  .oo .m-head { display: flex; justify-content: space-between; font-size: .66rem; color: var(--ink3); letter-spacing: .08em; margin-bottom: 5px; }
+  .oo-row { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: .66rem; }
+  .oo-lbl { width: 44px; color: var(--ink2); flex: none; }
+  .oo-half { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .oo-half.sell { justify-content: flex-end; }
+  .oo-bar { height: 8px; border-radius: 3px; min-width: 2px; }
+  .oo-bar.buy { background: var(--buy); }
+  .oo-bar.sell { background: var(--sell); }
+  .oo-val { color: var(--ink2); white-space: nowrap; }
+  .oo-mid { width: 1px; align-self: stretch; background: var(--line); flex: none; }
+
   /* ---------- filters ---------- */
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .chip {
@@ -247,7 +260,8 @@
   <div class="board" id="board"></div>
   <p class="note">
     ドーナツ＝Xの投稿（Yahoo!リアルタイム検索経由）を売買ワードで自動判定した割合。中央の%は買い・売りに絞った買い比率。<br>
-    下段バー＝海外ブローカー10社の実際のポジション比率（FXSSI集計）。約5分ごとに自動更新。
+    中段バー＝海外ブローカー10社の実際のポジション比率（FXSSI集計）。約5分ごとに自動更新。<br>
+    オープンオーダー＝OANDA顧客の未約定の指値・逆指値注文の分布（現値±1%内の集計、<span class="down">青=売り注文</span>・<span class="up">赤=買い注文</span>）。現値の上に売りが厚ければ上値の抵抗、下に買いが厚ければ下支えの目安。
   </p>
 
   <h2><b>Xの投稿</b>SNS FEED</h2>
@@ -341,6 +355,24 @@
           '<div class="bar"><i class="l" style="width:' + p.broker.long + '%"></i><i class="s" style="flex:1"></i></div>' +
           '<div class="m-val"><span class="up">ロング ' + p.broker.long + '%</span><span class="down">ショート ' + p.broker.short + "%</span></div></div>"
         : "";
+      var oo = "";
+      if (p.orders) {
+        var o = p.orders;
+        var mx = Math.max(o.aboveSell, o.aboveBuy, o.belowSell, o.belowBuy, 1);
+        var half = function (v, side) {
+          var bar = '<i class="oo-bar ' + side + '" style="width:' + Math.round(v / mx * 72) + '%"></i>';
+          var val = '<span class="oo-val">' + Math.round(v) + "%</span>";
+          return side === "sell"
+            ? '<div class="oo-half sell">' + val + bar + "</div>"
+            : '<div class="oo-half">' + bar + val + "</div>";
+        };
+        oo = '<div class="oo"><div class="m-head"><span>オープンオーダー（OANDA）</span><span>' +
+          esc(o.snapshot ? o.snapshot + "時点" : "") + "</span></div>" +
+          '<div class="oo-row"><span class="oo-lbl">現値の上</span>' + half(o.aboveSell, "sell") +
+          '<span class="oo-mid"></span>' + half(o.aboveBuy, "buy") + "</div>" +
+          '<div class="oo-row"><span class="oo-lbl">現値の下</span>' + half(o.belowSell, "sell") +
+          '<span class="oo-mid"></span>' + half(o.belowBuy, "buy") + "</div></div>";
+      }
       return '<div class="card">' +
         '<div class="pair"><div><div class="jp">' + esc(p.label) + '</div><div class="sym">' + esc(p.symbol) + "</div></div>" + rate + "</div>" +
         '<div class="donut-row">' +
@@ -354,7 +386,7 @@
             '<div><span class="sw" style="background:var(--buy)"></span>買い <b>' + s.buy + "</b>件</div>" +
             '<div><span class="sw" style="background:var(--sell)"></span>売り <b>' + s.sell + "</b>件</div>" +
             '<div><span class="sw" style="background:var(--neutral)"></span>中立 <b>' + s.neutral + "</b>件</div>" +
-          "</div></div>" + broker + "</div>";
+          "</div></div>" + broker + oo + "</div>";
     }).join("");
     document.getElementById("board").innerHTML = html;
   }

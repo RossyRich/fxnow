@@ -296,7 +296,56 @@ def get_prices():
     return out
 
 
-# ---------- 7. Reddit（ベストエフォート） ----------
+# ---------- 7. OANDAオープンオーダー ----------
+
+def get_open_orders():
+    """OANDAオーダーブックAPIから現値±1%の指値注文分布を取得
+    （X-OANDA-WIDGET-APIヘッダーが必須。widget.oanda.jpの公開ウィジェットと同じ経路）"""
+    out = {}
+    for p in PAIRS:
+        try:
+            inst = p["symbol"][:3] + "_" + p["symbol"][3:]
+            d = json.loads(fetch(
+                "https://widget.oanda.jp/api/order-book?instrument=%s&ago=0" % inst,
+                headers={"X-OANDA-WIDGET-API": "order-book",
+                         "Accept": "application/json"}))
+            ob = d.get("orderBook") or {}
+            price = float(ob.get("price") or 0)
+            if not price:
+                continue
+            win = price * 0.01   # 現値±1%
+            a_sell = a_buy = b_sell = b_buy = 0.0
+            for b in ob.get("buckets", []):
+                bp = float(b.get("price") or 0)
+                if bp < price - win or bp > price + win:
+                    continue
+                if bp >= price:
+                    a_sell += float(b.get("shortCountPercent") or 0)
+                    a_buy += float(b.get("longCountPercent") or 0)
+                else:
+                    b_sell += float(b.get("shortCountPercent") or 0)
+                    b_buy += float(b.get("longCountPercent") or 0)
+            total = a_sell + a_buy + b_sell + b_buy
+            if total <= 0:
+                continue
+            snap = ob.get("lastupdate") or ob.get("snapshot") or ""
+            m = re.search(r"(\d+)月(\d+)日\s*(\d+)時(\d+)分", snap)
+            if m:
+                snap = "%s/%s %s:%02d" % (m.group(1), m.group(2),
+                                          int(m.group(3)), int(m.group(4)))
+            # 現値±1%内の注文全体に対する構成比(%)に正規化
+            out[p["symbol"]] = {
+                "aboveSell": round(a_sell / total * 100), "aboveBuy": round(a_buy / total * 100),
+                "belowSell": round(b_sell / total * 100), "belowBuy": round(b_buy / total * 100),
+                "snapshot": snap,
+            }
+        except Exception as e:
+            log("oanda orders failed %s: %r" % (p["symbol"], e))
+    log("oanda orders: %s" % sorted(out.keys()))
+    return out
+
+
+# ---------- 8. Reddit（ベストエフォート） ----------
 
 def get_reddit():
     items = []
@@ -327,6 +376,7 @@ def get_reddit():
 def main():
     ratios = get_broker_ratios()
     prices = get_prices()
+    orders = get_open_orders()
 
     all_posts = []
     pairs_out = []
@@ -345,6 +395,7 @@ def main():
             "broker": ({"long": long_pct, "short": round(100 - long_pct, 1)}
                        if long_pct is not None else None),
             "price": price,
+            "orders": orders.get(p["symbol"]),
         })
 
     # 投稿フィードは新しい順・重複URL除去
