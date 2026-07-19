@@ -366,8 +366,8 @@
             ? '<div class="oo-half sell">' + val + bar + "</div>"
             : '<div class="oo-half">' + bar + val + "</div>";
         };
-        oo = '<div class="oo"><div class="m-head"><span>オープンオーダー（OANDA）</span><span>' +
-          esc(o.snapshot ? o.snapshot + "時点" : "") + "</span></div>" +
+        oo = '<div class="oo"><div class="m-head"><span>オープンオーダー(OANDA)</span><span>' +
+          esc(o.snapshot || "") + "</span></div>" +
           '<div class="oo-row"><span class="oo-lbl">現値の上</span>' + half(o.aboveSell, "sell") +
           '<span class="oo-mid"></span>' + half(o.aboveBuy, "buy") + "</div>" +
           '<div class="oo-row"><span class="oo-lbl">現値の下</span>' + half(o.belowSell, "sell") +
