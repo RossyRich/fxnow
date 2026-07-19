@@ -93,16 +93,19 @@
 
   /* ---------- オープンオーダー（OANDA） ---------- */
   .oo { margin-top: 13px; }
-  .oo .m-head { display: flex; justify-content: space-between; font-size: .66rem; color: var(--ink3); letter-spacing: .08em; margin-bottom: 5px; }
-  .oo-row { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: .66rem; }
-  .oo-lbl { width: 44px; color: var(--ink2); flex: none; }
-  .oo-half { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0; }
-  .oo-half.sell { justify-content: flex-end; }
-  .oo-bar { height: 8px; border-radius: 3px; min-width: 2px; }
-  .oo-bar.buy { background: var(--buy); }
-  .oo-bar.sell { background: var(--sell); }
-  .oo-val { color: var(--ink2); white-space: nowrap; }
-  .oo-mid { width: 1px; align-self: stretch; background: var(--line); flex: none; }
+  .oo .m-head { display: flex; justify-content: space-between; font-size: .66rem; color: var(--ink3); letter-spacing: .08em; margin-bottom: 3px; }
+  .oo-cap { display: flex; justify-content: space-between; font-size: .58rem; color: var(--ink3); padding-left: 48px; margin-bottom: 3px; }
+  .oo-cap .s { color: var(--sell); }
+  .oo-cap .b { color: var(--buy); }
+  .oo-r { display: flex; align-items: center; gap: 2px; height: 8px; }
+  .oo-price { width: 46px; flex: none; font-size: .56rem; color: var(--ink3); text-align: right; padding-right: 4px; line-height: 1; }
+  .oo-cell { flex: 1; position: relative; height: 6px; min-width: 0; background: rgba(255,255,255,.025); border-radius: 1px; }
+  .oo-cell i { position: absolute; top: 0; height: 100%; display: block; }
+  .oo-cell.sell i { right: 0; background: var(--sell); border-radius: 2px 0 0 2px; }
+  .oo-cell.buy i { left: 0; background: var(--buy); border-radius: 0 2px 2px 0; }
+  .oo-now { display: flex; align-items: center; gap: 6px; margin: 1px 0; }
+  .oo-now::before, .oo-now::after { content: ""; flex: 1; height: 1px; background: var(--accent); opacity: .55; }
+  .oo-now span { font-size: .6rem; color: var(--accent); font-weight: 700; line-height: 1.4; }
 
   /* ---------- filters ---------- */
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -261,7 +264,7 @@
   <p class="note">
     ドーナツ＝Xの投稿（Yahoo!リアルタイム検索経由）を売買ワードで自動判定した割合。中央の%は買い・売りに絞った買い比率。<br>
     中段バー＝海外ブローカー10社の実際のポジション比率（FXSSI集計）。約5分ごとに自動更新。<br>
-    オープンオーダー＝OANDA顧客の未約定の指値・逆指値注文の分布（現値±1%内の集計、<span class="down">青=売り注文</span>・<span class="up">赤=買い注文</span>）。現値の上に売りが厚ければ上値の抵抗、下に買いが厚ければ下支えの目安。
+    オープンオーダー＝OANDA顧客の未約定の指値・逆指値注文の量をレート帯ごとに表示（現値±2%を24分割、<span class="down">左の青=売り注文</span>・<span class="up">右の赤=買い注文</span>、黄色の線=現在レート）。現値の上に売りの壁があれば上値の抵抗、下に買いの壁があれば下支えの目安。バーにカーソルを合わせると数値が見られます。
   </p>
 
   <h2><b>Xの投稿</b>SNS FEED</h2>
@@ -356,22 +359,26 @@
           '<div class="m-val"><span class="up">ロング ' + p.broker.long + '%</span><span class="down">ショート ' + p.broker.short + "%</span></div></div>"
         : "";
       var oo = "";
-      if (p.orders) {
+      if (p.orders && p.orders.bins) {
         var o = p.orders;
-        var mx = Math.max(o.aboveSell, o.aboveBuy, o.belowSell, o.belowBuy, 1);
-        var half = function (v, side) {
-          var bar = '<i class="oo-bar ' + side + '" style="width:' + Math.round(v / mx * 72) + '%"></i>';
-          var val = '<span class="oo-val">' + Math.round(v) + "%</span>";
-          return side === "sell"
-            ? '<div class="oo-half sell">' + val + bar + "</div>"
-            : '<div class="oo-half">' + bar + val + "</div>";
-        };
+        var mx = 0;
+        o.bins.forEach(function (bn) { mx = Math.max(mx, bn.s, bn.b); });
+        mx = mx || 1;
+        var nowLine = '<div class="oo-now"><span>' + esc(o.price) + "</span></div>";
+        var rows = o.bins.map(function (bn, i) {
+          var label = (i % 4 === 1) ? bn.p : "";
+          var sw = bn.s > 0 ? Math.max(bn.s / mx * 100, 2.5) : 0;
+          var bw = bn.b > 0 ? Math.max(bn.b / mx * 100, 2.5) : 0;
+          return (i === o.bins.length / 2 ? nowLine : "") +
+            '<div class="oo-r" title="' + esc(bn.p) + " 付近: 売り" + bn.s + "% / 買い" + bn.b + '%">' +
+            '<span class="oo-price">' + label + "</span>" +
+            '<div class="oo-cell sell">' + (sw ? '<i style="width:' + sw + '%"></i>' : "") + "</div>" +
+            '<div class="oo-cell buy">' + (bw ? '<i style="width:' + bw + '%"></i>' : "") + "</div></div>";
+        }).join("");
         oo = '<div class="oo"><div class="m-head"><span>オープンオーダー(OANDA)</span><span>' +
           esc(o.snapshot || "") + "</span></div>" +
-          '<div class="oo-row"><span class="oo-lbl">現値の上</span>' + half(o.aboveSell, "sell") +
-          '<span class="oo-mid"></span>' + half(o.aboveBuy, "buy") + "</div>" +
-          '<div class="oo-row"><span class="oo-lbl">現値の下</span>' + half(o.belowSell, "sell") +
-          '<span class="oo-mid"></span>' + half(o.belowBuy, "buy") + "</div></div>";
+          '<div class="oo-cap"><span class="s">← 売り注文</span><span class="b">買い注文 →</span></div>' +
+          '<div class="oo-chart">' + rows + "</div></div>";
       }
       return '<div class="card">' +
         '<div class="pair"><div><div class="jp">' + esc(p.label) + '</div><div class="sym">' + esc(p.symbol) + "</div></div>" + rate + "</div>" +

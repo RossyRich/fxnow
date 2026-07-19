@@ -298,8 +298,12 @@ def get_prices():
 
 # ---------- 7. OANDAオープンオーダー ----------
 
+OO_BINS = 12      # 現値の上下それぞれのビン数
+OO_RANGE = 0.02   # 表示レンジ = 現値±2%
+
+
 def get_open_orders():
-    """OANDAオーダーブックAPIから現値±1%の指値注文分布を取得
+    """OANDAオーダーブックAPIから現値±2%の指値注文ヒストグラムを取得
     （X-OANDA-WIDGET-APIヘッダーが必須。widget.oanda.jpの公開ウィジェットと同じ経路）"""
     out = {}
     for p in PAIRS:
@@ -313,30 +317,35 @@ def get_open_orders():
             price = float(ob.get("price") or 0)
             if not price:
                 continue
-            win = price * 0.01   # 現値±1%
-            a_sell = a_buy = b_sell = b_buy = 0.0
+            step = price * OO_RANGE / OO_BINS
+            sells = [0.0] * (OO_BINS * 2)   # idx 0 = 最上位ビン（現値+2%側）
+            buys = [0.0] * (OO_BINS * 2)
             for b in ob.get("buckets", []):
                 bp = float(b.get("price") or 0)
-                if bp < price - win or bp > price + win:
-                    continue
-                if bp >= price:
-                    a_sell += float(b.get("shortCountPercent") or 0)
-                    a_buy += float(b.get("longCountPercent") or 0)
-                else:
-                    b_sell += float(b.get("shortCountPercent") or 0)
-                    b_buy += float(b.get("longCountPercent") or 0)
-            total = a_sell + a_buy + b_sell + b_buy
+                offset = bp - price
+                idx = OO_BINS - 1 - int(offset // step)
+                if 0 <= idx < OO_BINS * 2:
+                    sells[idx] += float(b.get("shortCountPercent") or 0)
+                    buys[idx] += float(b.get("longCountPercent") or 0)
+            total = sum(sells) + sum(buys)
             if total <= 0:
                 continue
+            fmt = "%%.%df" % p["digits"]
+            bins = []
+            for i in range(OO_BINS * 2):
+                # ビン中心のレートをラベルに、量は±2%内の注文全体に占める%に正規化
+                center = price + (OO_BINS - 1 - i + 0.5) * step
+                bins.append({"p": fmt % center,
+                             "s": round(sells[i] / total * 100, 1),
+                             "b": round(buys[i] / total * 100, 1)})
             snap = ob.get("lastupdate") or ob.get("snapshot") or ""
             m = re.search(r"(\d+)月(\d+)日\s*(\d+)時(\d+)分", snap)
             if m:
                 snap = "%s/%s %s:%02d" % (m.group(1), m.group(2),
                                           int(m.group(3)), int(m.group(4)))
-            # 現値±1%内の注文全体に対する構成比(%)に正規化
             out[p["symbol"]] = {
-                "aboveSell": round(a_sell / total * 100), "aboveBuy": round(a_buy / total * 100),
-                "belowSell": round(b_sell / total * 100), "belowBuy": round(b_buy / total * 100),
+                "bins": bins,
+                "price": fmt % price,
                 "snapshot": snap,
             }
         except Exception as e:
