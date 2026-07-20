@@ -55,8 +55,19 @@ jobs:
             [ "$el" -lt 300 ] && sleep $((300 - el))
           done
 
-      - name: 次の実行を予約（自己連鎖）
+      - name: 次の実行を予約（自己連鎖・リトライ付き）
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run fxnow-cron.yml -R ${{ github.repository }}
+        run: |
+          # GitHub APIの一時障害(504等)で連鎖が切れないよう最大10回リトライ
+          for i in $(seq 1 10); do
+            if gh workflow run fxnow-cron.yml -R ${{ github.repository }}; then
+              echo "dispatched (try $i)"
+              exit 0
+            fi
+            echo "dispatch failed (try $i) - 30秒後にリトライ"
+            sleep 30
+          done
+          echo "::error::自己連鎖の予約に失敗。毎時cronか手動実行での復旧待ち"
+          exit 1

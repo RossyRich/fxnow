@@ -299,11 +299,11 @@
     <tbody id="cal"></tbody>
   </table>
   </div>
-  <p class="note">本日発表の経済指標（みんかぶFX）。発表後は「結果」欄に発表値を自動表示します（約5分遅れ）。発表済みの行は薄く表示。</p>
+  <p class="note">本日発表の経済指標（外為どっとコム）。発表後は「結果」欄に発表値を自動表示します（約5〜10分遅れ）。発表済みの行は薄く表示。重要度は★3=高・★2=中・★1=低。</p>
   </div><!-- /view-cal -->
 
   <footer>
-    データ源: FXSSI（ポジション比率）／Yahoo!リアルタイム検索（Xポスト）／みんかぶFX（ニュース・経済指標）／ForexLive（ニュース）／GMOコイン公開API（レート）。<br>
+    データ源: FXSSI（ポジション比率）／Yahoo!リアルタイム検索（Xポスト）／みんかぶFX・ForexLive（ニュース）／外為どっとコム（経済指標）／GMOコイン公開API（レート）／OANDA（オープンオーダー）。<br>
     本サイトは情報の自動収集・表示のみを行うものであり、投資助言ではありません。投稿の売買判定は機械的なキーワード判定であり正確性を保証しません。投資判断はご自身の責任でお願いします。
   </footer>
 </div>
@@ -454,7 +454,7 @@
     var rows = (d.calendar || []).map(function (e) {
       var hasResult = e.result && e.result !== "---" && e.result !== "";
       if (!hasResult) upcoming++;
-      var starCls = e.stars >= 4 ? "imp-High" : (e.stars === 3 ? "imp-Medium" : "");
+      var starCls = e.stars >= 3 ? "imp-High" : (e.stars === 2 ? "imp-Medium" : "");
       var stars = "★★★★★".slice(0, e.stars || 0);
       return "<tr" + (hasResult ? ' class="past"' : "") + "><td>" + esc(e.time) +
         '</td><td><span class="ccy">' + esc(e.country || "—") + "</span></td><td>" + esc(e.title) +

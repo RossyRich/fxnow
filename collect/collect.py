@@ -212,45 +212,46 @@ def get_forexlive():
     return items
 
 
-# ---------- 5. 経済指標カレンダー（ForexFactory） ----------
+# ---------- 5. 経済指標カレンダー（外為どっとコム・本日分） ----------
+# みんかぶは結果の反映が数時間遅れるため、発表数分で結果が入る外為どっとコムのAPIに変更(2026-07-20)
+
+GAITAME_COUNTRY = {"JPY": "日", "USD": "米", "EUR": "欧", "GBP": "英", "AUD": "豪",
+                   "NZD": "NZ", "CAD": "加", "CHF": "スイス", "DEM": "独", "GER": "独",
+                   "FRF": "仏", "CNH": "中", "CNY": "中", "TRY": "トルコ",
+                   "ZAR": "南ア", "HKD": "香港", "SGD": "シンガ", "KRW": "韓",
+                   "INR": "印", "MXN": "メキシコ", "BRL": "ブラジル", "RUB": "露",
+                   "NOK": "ノルウェー", "SEK": "スウェーデン", "PLZ": "ポーランド"}
+
 
 def get_calendar():
-    """みんかぶFXの経済指標カレンダーから本日分を取得（日本語・結果付き）"""
+    """外為どっとコムの経済指標APIから本日分を取得（日本語・結果は発表後すぐ反映）"""
     items = []
     try:
-        today = datetime.now(JST).strftime("%Y-%m-%d")
-        html = fetch("https://fx.minkabu.jp/indicators?date=%s&days=1" % today)
-        rows = re.findall(
-            r'<tr class="fs-s"[^>]*data_importance="(\d)"[^>]*data_country="[A-Z]+"[^>]*>(.*?)</tr>',
-            html, re.S)
-
-        def txt(s):
-            s = re.sub(r"<svg.*?</svg>", "", s, flags=re.S)
-            s = re.sub(r"<[^>]+>", " ", s)
-            return re.sub(r"\s+", " ", unescape(s)).strip()
-
-        c_short = {"アメリカ": "米", "ユーロ": "欧", "日本": "日", "イギリス": "英",
-                   "英国": "英", "カナダ": "加", "オーストラリア": "豪", "豪州": "豪",
-                   "ニュージーランド": "NZ", "中国": "中", "ドイツ": "独",
-                   "フランス": "仏", "南アフリカ": "南ア", "トルコ": "トルコ"}
-        for imp, body in rows:
-            tds = re.findall(r"<td[^>]*>(.*?)</td>", body, re.S)
-            if len(tds) < 8:
-                continue
-            # 列: 0=時刻 1=国旗 2=指標名 3=重要度 4=前回変動幅 5=前回(改定) 6=予想 7=結果
-            name = txt(tds[2])
-            country, title = (name.split("・", 1) + [""])[:2] if "・" in name else ("", name)
-            country = c_short.get(country, country[:3])
+        today = datetime.now(JST).strftime("%Y%m%d")
+        d = json.loads(fetch(
+            "https://navi.gaitame.com/v3/info/indicators/calendar?from=%s&to=%s"
+            % (today, today),
+            headers={"Accept": "application/json",
+                     "Referer": "https://www.gaitame.com/"}))
+        for ev in d.get("data", []):
+            try:
+                imp = int(ev.get("importance") or 0)
+            except ValueError:
+                imp = 0
+            prev = ev.get("last") or ""
+            if ev.get("change"):
+                prev += "（%s）" % ev["change"]   # 前回の修正値
+            code = ev.get("country") or ""
             items.append({
-                "time": txt(tds[0]),
-                "country": country,
-                "title": title,
-                "stars": int(imp),
-                "previous": txt(tds[5]),
-                "forecast": txt(tds[6]),
-                "result": txt(tds[7]),
+                "time": ev.get("time") or "—",
+                "country": GAITAME_COUNTRY.get(code, code),
+                "title": ev.get("subject") or "",
+                "stars": imp + 1,   # API: 0=低 1=中 2=高 → ★1/★2/★3
+                "previous": prev,
+                "forecast": ev.get("estimate") or "",
+                "result": ev.get("result") or "",
             })
-        log("calendar(minkabu): %d items" % len(items))
+        log("calendar(gaitame): %d items" % len(items))
     except Exception as e:
         log("calendar failed: %r" % e)
     return items[:40]
