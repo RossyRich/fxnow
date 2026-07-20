@@ -144,6 +144,9 @@
   .news-item .d { font-size: .66rem; color: var(--ink3); margin-top: 1px; }
 
   /* ---------- calendar ---------- */
+  .cal-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .cal-stamp { font-size: .68rem; color: var(--ink3); }
+  .cal-stamp.hot { color: var(--accent); }
   .cal-wrap { overflow-x: auto; }
   table.cal { width: 100%; min-width: 560px; border-collapse: collapse; font-size: .8rem; }
   table.cal td:first-child { white-space: nowrap; }
@@ -293,6 +296,10 @@
 
   <div id="view-cal" style="display:none">
   <h2><b>本日の経済指標</b>CALENDAR — TODAY</h2>
+  <div class="cal-tools">
+    <button class="chip" id="calReload">↻ 最新に更新</button>
+    <span class="cal-stamp" id="calRefreshed"></span>
+  </div>
   <div class="cal-wrap">
   <table class="cal">
     <thead><tr><th>時刻</th><th>国</th><th>指標</th><th>重要度</th><th>予想</th><th>結果</th><th>前回</th></tr></thead>
@@ -502,12 +509,45 @@
     renderCal(d);
   }
 
+  function calStamp(msg, hot) {
+    var el = document.getElementById("calRefreshed");
+    el.textContent = msg;
+    el.className = "cal-stamp" + (hot ? " hot" : "");
+  }
+
   function refresh() {
-    fetch("data.json?ts=" + Date.now(), { cache: "no-store" })
+    return fetch("data.json?ts=" + Date.now(), { cache: "no-store" })
       .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-      .then(render)
+      .then(function (d) {
+        render(d);
+        var t = new Date();
+        var hh = ("0" + t.getHours()).slice(-2), mm = ("0" + t.getMinutes()).slice(-2), ss = ("0" + t.getSeconds()).slice(-2);
+        if (hotWindow(d)) {
+          calStamp("結果待ちの指標あり — 10秒ごとに自動確認中（" + hh + ":" + mm + ":" + ss + " 確認）", true);
+        } else {
+          calStamp("最終確認 " + hh + ":" + mm + ":" + ss, false);
+        }
+      })
       .catch(function () { if (!state.data) render(window.FX_DATA); });
   }
+
+  // 発表時刻を過ぎて結果待ちの指標があるか（発表後15分まで）
+  function hotWindow(d) {
+    if (!d || !d.calendar) return false;
+    var jst = new Date(Date.now() + 9 * 3600 * 1000);
+    var mins = jst.getUTCHours() * 60 + jst.getUTCMinutes();
+    return d.calendar.some(function (e) {
+      if (e.result || !e.time || e.time.indexOf(":") < 0) return false;
+      var p = e.time.split(":");
+      var t = (+p[0]) * 60 + (+p[1]);
+      return mins >= t && mins - t <= 15;
+    });
+  }
+
+  document.getElementById("calReload").onclick = function () {
+    calStamp("更新中…", false);
+    refresh();
+  };
 
   // ホーム画面追加の案内（すでにアプリとして起動中なら非表示）
   (function () {
@@ -525,6 +565,10 @@
   if (location.protocol.indexOf("http") === 0) {
     refresh();
     setInterval(refresh, 5 * 60 * 1000);
+    // 指標の結果待ち中は10秒ごとに新データを確認
+    setInterval(function () {
+      if (!document.hidden && hotWindow(state.data)) refresh();
+    }, 10 * 1000);
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) refresh();
     });

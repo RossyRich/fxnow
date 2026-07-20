@@ -40,6 +40,7 @@ jobs:
           end=$((SECONDS + 1800))
           while [ $SECONDS -lt $end ]; do
             t0=$SECONDS
+            interval=300
             if is_closed; then
               echo "週末休場中のため収集スキップ ($(TZ=Asia/Tokyo date '+%m/%d %H:%M JST'))"
             else
@@ -50,9 +51,14 @@ jobs:
                 git pull --rebase origin main || true
                 git push || true
               fi
+              # 指標の結果待ち中は収集間隔を60秒に短縮
+              if [ "$(cat hot.txt 2>/dev/null)" = "1" ]; then
+                interval=60
+                echo "指標の結果待ち: 収集間隔を60秒に短縮"
+              fi
             fi
             el=$((SECONDS - t0))
-            [ "$el" -lt 300 ] && sleep $((300 - el))
+            [ "$el" -lt "$interval" ] && sleep $((interval - el))
           done
 
       - name: 次の実行を予約（自己連鎖・リトライ付き）

@@ -438,7 +438,26 @@ def main():
         f.write(js)
     with open(os.path.join(ROOT, "data.js"), "w", encoding="utf-8") as f:
         f.write("window.FX_DATA=" + js + ";")
-    log("done. updatedAt=%s" % data["updatedAt"])
+
+    # 指標発表後15分以内で結果が未反映のものがあれば hot.txt=1
+    # （ワークフローがこれを見て収集間隔を60秒に短縮する）
+    hot = "0"
+    now = datetime.now(JST)
+    for e in data["calendar"]:
+        t = e.get("time") or ""
+        if ":" not in t or e.get("result"):
+            continue
+        try:
+            hh, mm = t.split(":")
+            at = now.replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+        except ValueError:
+            continue
+        if timedelta(0) <= now - at <= timedelta(minutes=15):
+            hot = "1"
+            break
+    with open(os.path.join(ROOT, "hot.txt"), "w") as f:
+        f.write(hot)
+    log("done. updatedAt=%s hot=%s" % (data["updatedAt"], hot))
 
 
 if __name__ == "__main__":
