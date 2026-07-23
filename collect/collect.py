@@ -439,20 +439,24 @@ def main():
     with open(os.path.join(ROOT, "data.js"), "w", encoding="utf-8") as f:
         f.write("window.FX_DATA=" + js + ";")
 
-    # 指標発表後15分以内で結果が未反映のものがあれば hot.txt=1
+    # 指標発表の3分前〜発表後20分（結果未反映の間）は hot.txt=1
     # （ワークフローがこれを見て収集間隔を60秒に短縮する）
+    # 会見・演説など数値結果が出ないイベントは対象外
+    no_result_words = ("会見", "演説", "講演", "証言", "発言", "休場")
     hot = "0"
     now = datetime.now(JST)
     for e in data["calendar"]:
         t = e.get("time") or ""
         if ":" not in t or e.get("result"):
             continue
+        if any(w in (e.get("title") or "") for w in no_result_words):
+            continue
         try:
             hh, mm = t.split(":")
             at = now.replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
         except ValueError:
             continue
-        if timedelta(0) <= now - at <= timedelta(minutes=15):
+        if timedelta(minutes=-3) <= now - at <= timedelta(minutes=20):
             hot = "1"
             break
     with open(os.path.join(ROOT, "hot.txt"), "w") as f:
