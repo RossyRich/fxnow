@@ -5,16 +5,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: 指数データ源の疎通確認
+      - name: test
         run: |
-          echo "=== FRED SP500 ==="
-          curl -s -m 20 -A "Mozilla/5.0" "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500&cosd=2026-07-01" -w "\nHTTP %{http_code}\n" | tail -4
-          echo "=== FRED DJIA ==="
-          curl -s -m 20 -A "Mozilla/5.0" "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DJIA&cosd=2026-07-01" -w "\nHTTP %{http_code}\n" | tail -3
-          echo "=== FRED NIKKEI225 ==="
-          curl -s -m 20 -A "Mozilla/5.0" "https://fred.stlouisfed.org/graph/fredgraph.csv?id=NIKKEI225&cosd=2026-07-01" -w "\nHTTP %{http_code}\n" | tail -3
-          echo "=== Yahoo N225 ==="
-          curl -s -m 20 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0 Safari/537.36" "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?interval=1d&range=5d" -w "\nHTTP %{http_code}\n" -o /tmp/y.json; echo "HTTP above"; head -c 200 /tmp/y.json
-          echo ""
-          echo "=== 日経公式CSV ==="
-          curl -s -m 20 -A "Mozilla/5.0" "https://indexes.nikkei.co.jp/nkave/historical/nikkei_stock_average_daily_jp.csv" -w "\nHTTP %{http_code}\n" -o /tmp/nk.csv; echo "HTTP above"; iconv -f SHIFT-JIS -t UTF-8 /tmp/nk.csv 2>/dev/null | tail -3 || tail -c 200 /tmp/nk.csv
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
+          echo "=== stooq ^spx ==="
+          curl -s -m 20 -A "$UA" "https://stooq.com/q/d/l/?s=^spx&i=d&d1=20260601&d2=20260727" -w "\nHTTP %{http_code}\n" | tail -4
+          echo "=== stooq ^nkx ==="
+          curl -s -m 20 -A "$UA" "https://stooq.com/q/d/l/?s=^nkx&i=d&d1=20260601&d2=20260727" -w "\nHTTP %{http_code}\n" | tail -3
+          echo "=== stooq ^dji ==="
+          curl -s -m 20 -A "$UA" "https://stooq.com/q/d/l/?s=^dji&i=d&d1=20260601&d2=20260727" -w "\nHTTP %{http_code}\n" | tail -3
+          echo "=== yahoo cookie+chart ==="
+          curl -s -m 20 -A "$UA" -c /tmp/yc.txt "https://fc.yahoo.com" -o /dev/null -w "fc: %{http_code}\n" || true
+          curl -s -m 20 -A "$UA" -b /tmp/yc.txt "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1d&range=5d" -w "\nHTTP %{http_code}\n" -o /tmp/y.json; head -c 200 /tmp/y.json; echo
+          echo "=== wsj nikkei ==="
+          curl -s -m 20 -A "$UA" "https://www.wsj.com/market-data/quotes/index/JP/XTKS/NIK/historical-prices/download?MOD=mw_quote&num_rows=60&range_days=60&startDate=06/01/2026&endDate=07/27/2026" -w "\nHTTP %{http_code}\n" | head -4
