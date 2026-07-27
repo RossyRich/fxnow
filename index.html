@@ -56,7 +56,7 @@
     margin: 34px 0 14px; text-transform: uppercase;
   }
   h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-  h2 b { color: var(--ink); font-size: 1rem; letter-spacing: .06em; }
+  h2 b { color: var(--ink); font-size: 1rem; letter-spacing: .06em; white-space: nowrap; }
 
   /* ---------- sentiment board ---------- */
   .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 12px; margin-top: 18px; }
@@ -144,6 +144,25 @@
   .news-item .d { font-size: .66rem; color: var(--ink3); margin-top: 1px; }
 
   /* ---------- calendar ---------- */
+  /* ---------- 指数タブ ---------- */
+  .idx-card { padding: 16px 14px 10px; }
+  .idx-head { display: flex; gap: 22px; flex-wrap: wrap; font-size: .78rem; color: var(--ink2); }
+  .idx-val b { font-size: 1.15rem; color: var(--ink); margin-left: 7px; font-weight: 800; }
+  .idx-key { margin-right: 6px; font-size: .7rem; }
+  .idx-chg { font-size: .72rem; margin-left: 6px; }
+  .idx-chart-wrap { position: relative; margin-top: 6px; }
+  #idxChart { width: 100%; height: 240px; display: block; overflow: visible; }
+  .idx-tip {
+    position: absolute; display: none; pointer-events: none; z-index: 5;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 9px; font-size: .68rem; white-space: nowrap; line-height: 1.6;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+  .idx-tip .d { color: var(--ink3); }
+  .idx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .idx-tv { padding: 12px 10px 4px; }
+  .idx-tv-ttl { font-size: .78rem; font-weight: 700; margin-bottom: 2px; padding-left: 4px; }
+
   .cal-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .cal-stamp { font-size: .68rem; color: var(--ink3); }
   .cal-stamp.hot { color: var(--accent); }
@@ -258,6 +277,7 @@
 
   <nav class="tabs">
     <button class="tab on" data-view="board">売買目線</button>
+    <button class="tab" data-view="idx">指数</button>
     <button class="tab" data-view="sns">Xの投稿</button>
     <button class="tab" data-view="cal" id="tabCal">経済指標<span class="cnt" id="calCnt"></span></button>
   </nav>
@@ -276,6 +296,38 @@
   </p>
 
   </div><!-- /view-board -->
+
+  <div id="view-idx" style="display:none">
+  <h2><b>通貨指数</b>CURRENCY STRENGTH</h2>
+  <div class="cal-tools">
+    <button class="chip reload-btn">↻ 最新に更新</button>
+    <span class="cal-stamp"></span>
+  </div>
+  <div class="card idx-card">
+    <div class="idx-head">
+      <div class="idx-val"><span class="idx-key" style="color:var(--accent)">■</span>ドル指数
+        <b id="usdIdxVal">—</b><span id="usdIdxChg" class="idx-chg"></span></div>
+      <div class="idx-val"><span class="idx-key" style="color:var(--sell)">■</span>円指数
+        <b id="jpyIdxVal">—</b><span id="jpyIdxChg" class="idx-chg"></span></div>
+    </div>
+    <div class="idx-chart-wrap">
+      <svg id="idxChart" viewBox="0 0 640 240" preserveAspectRatio="none"></svg>
+      <div class="idx-tip" id="idxTip"></div>
+    </div>
+  </div>
+  <p class="note">
+    主要7通貨に対する強さを日足の終値から算出し、90日前を100とした指数（当サイト独自計算）。
+    <span style="color:var(--accent)">ドル指数</span>が上・<span class="down">円指数</span>が下ならドル円は上昇しやすい、というように通貨そのものの強弱を比較できます。
+  </p>
+
+  <h2><b>株価指数</b>STOCK INDICES</h2>
+  <div class="idx-grid">
+    <div class="card idx-tv"><div class="idx-tv-ttl">日経225</div><div id="tvN225"></div></div>
+    <div class="card idx-tv"><div class="idx-tv-ttl">ダウ平均</div><div id="tvDJI"></div></div>
+    <div class="card idx-tv"><div class="idx-tv-ttl">S&amp;P500</div><div id="tvSPX"></div></div>
+  </div>
+  <p class="note">株価指数はTradingViewのチャート（24時間取引のCFD価格。日中の現物取引時間外も動きます）。リスクオン／オフの流れを掴むのに使えます。</p>
+  </div><!-- /view-idx -->
 
   <div id="view-sns" style="display:none">
   <h2><b>Xの投稿</b>SNS FEED</h2>
@@ -483,7 +535,7 @@
   }
 
   // ビュー切替タブ
-  var VIEWS = { board: "view-board", sns: "view-sns", cal: "view-cal" };
+  var VIEWS = { board: "view-board", idx: "view-idx", sns: "view-sns", cal: "view-cal" };
   Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (t) {
     t.onclick = function () {
       Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (x) { x.classList.remove("on"); });
@@ -492,6 +544,7 @@
       Object.keys(VIEWS).forEach(function (k) {
         document.getElementById(VIEWS[k]).style.display = (k === v) ? "" : "none";
       });
+      if (v === "idx") loadTV();   // 株価指数は開いたときに初めて読み込む
       window.scrollTo(0, 0);
     };
   });
@@ -503,6 +556,114 @@
     return (dow === 6 && h >= 7) || dow === 0 || (dow === 1 && h < 7);
   }
 
+  // ---------- 通貨指数チャート ----------
+  var IDX_W = 640, IDX_H = 240, IDX_PAD = { t: 14, r: 46, b: 22, l: 8 };
+
+  function renderIdx(d) {
+    var c = d.ccyIndex, svg = document.getElementById("idxChart");
+    if (!c || !c.dates || c.dates.length < 2) {
+      svg.innerHTML = '<text x="320" y="120" fill="#626c80" font-size="13" text-anchor="middle">データ取得中…</text>';
+      return;
+    }
+    var n = c.dates.length;
+    var all = c.usd.concat(c.jpy);
+    var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+    var pad = (hi - lo) * 0.12 || 1;
+    lo -= pad; hi += pad;
+    var iw = IDX_W - IDX_PAD.l - IDX_PAD.r, ih = IDX_H - IDX_PAD.t - IDX_PAD.b;
+    var X = function (i) { return IDX_PAD.l + i / (n - 1) * iw; };
+    var Y = function (v) { return IDX_PAD.t + (hi - v) / (hi - lo) * ih; };
+
+    var g = "";
+    // 目盛り（100を基準線として強調）
+    var step = (hi - lo) > 8 ? 2 : 1;
+    for (var v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      var isBase = Math.abs(v - 100) < 0.001;
+      g += '<line x1="' + IDX_PAD.l + '" x2="' + (IDX_PAD.l + iw) + '" y1="' + Y(v) + '" y2="' + Y(v) +
+        '" stroke="' + (isBase ? "#39435a" : "#1c2333") + '"' + (isBase ? ' stroke-dasharray="4 4"' : "") + ' stroke-width="1"/>' +
+        '<text x="' + (IDX_PAD.l + iw + 6) + '" y="' + (Y(v) + 3.5) + '" fill="#626c80" font-size="10">' + v + "</text>";
+    }
+    // 月の区切り
+    var prevMonth = null;
+    c.dates.forEach(function (ds, i) {
+      var m = ds.slice(5, 7);
+      if (prevMonth !== null && m !== prevMonth) {
+        g += '<line x1="' + X(i) + '" x2="' + X(i) + '" y1="' + IDX_PAD.t + '" y2="' + (IDX_PAD.t + ih) + '" stroke="#1c2333" stroke-width="1"/>' +
+          '<text x="' + (X(i) + 4) + '" y="' + (IDX_H - 6) + '" fill="#626c80" font-size="10">' + (+m) + "月</text>";
+      }
+      prevMonth = m;
+    });
+    var line = function (arr, color) {
+      var pts = arr.map(function (v, i) { return X(i) + "," + Y(v); }).join(" ");
+      return '<polyline points="' + pts + '" fill="none" stroke="' + color +
+        '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<circle cx="' + X(n - 1) + '" cy="' + Y(arr[n - 1]) + '" r="3.5" fill="' + color + '"/>';
+    };
+    g += line(c.jpy, "#4da3ff") + line(c.usd, "#ffd166");
+    g += '<line id="idxCross" x1="0" x2="0" y1="' + IDX_PAD.t + '" y2="' + (IDX_PAD.t + ih) +
+      '" stroke="#626c80" stroke-width="1" style="display:none"/>';
+    g += '<rect id="idxHit" x="' + IDX_PAD.l + '" y="' + IDX_PAD.t + '" width="' + iw + '" height="' + ih + '" fill="transparent"/>';
+    svg.innerHTML = g;
+
+    document.getElementById("usdIdxVal").textContent = c.usd[n - 1].toFixed(1);
+    document.getElementById("jpyIdxVal").textContent = c.jpy[n - 1].toFixed(1);
+    var chg = function (el, v) {
+      var e = document.getElementById(el);
+      e.textContent = (v > 0 ? "+" : "") + v.toFixed(2);
+      e.className = "idx-chg " + (v > 0 ? "up" : (v < 0 ? "down" : "flat"));
+    };
+    chg("usdIdxChg", c.usdChange);
+    chg("jpyIdxChg", c.jpyChange);
+
+    // ホバーで日付と両指数を表示
+    var hit = document.getElementById("idxHit"), cross = document.getElementById("idxCross");
+    var tip = document.getElementById("idxTip"), wrap = svg.parentNode;
+    function move(ev) {
+      var r = svg.getBoundingClientRect();
+      var px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * IDX_W;
+      var i = Math.round((px - IDX_PAD.l) / iw * (n - 1));
+      i = Math.max(0, Math.min(n - 1, i));
+      cross.style.display = "";
+      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i));
+      tip.style.display = "block";
+      tip.innerHTML = '<div class="d">' + esc(c.dates[i].slice(5).replace("-", "/")) + "</div>" +
+        '<div><span style="color:#ffd166">■</span> ドル ' + c.usd[i].toFixed(1) + "</div>" +
+        '<div><span style="color:#4da3ff">■</span> 円 ' + c.jpy[i].toFixed(1) + "</div>";
+      var left = X(i) / IDX_W * wrap.clientWidth + 12;
+      if (left > wrap.clientWidth - 110) left -= 130;
+      tip.style.left = Math.max(0, left) + "px";
+      tip.style.top = "10px";
+    }
+    hit.addEventListener("mousemove", move);
+    hit.addEventListener("touchstart", move);
+    hit.addEventListener("touchmove", move);
+    hit.addEventListener("mouseleave", function () {
+      cross.style.display = "none"; tip.style.display = "none";
+    });
+  }
+
+  // ---------- 株価指数（TradingView） ----------
+  var tvLoaded = false;
+  function loadTV() {
+    if (tvLoaded || location.protocol.indexOf("http") !== 0) return;
+    tvLoaded = true;
+    [["tvN225", "FOREXCOM:JPXJPY"], ["tvDJI", "FOREXCOM:DJI"], ["tvSPX", "FOREXCOM:SPXUSD"]]
+      .forEach(function (x) {
+        var host = document.getElementById(x[0]);
+        var box = document.createElement("div");
+        box.className = "tradingview-widget-container";
+        var s = document.createElement("script");
+        s.src = "https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
+        s.async = true;
+        s.innerHTML = JSON.stringify({
+          symbol: x[1], width: "100%", height: 200, locale: "ja",
+          dateRange: "3M", colorTheme: "dark", isTransparent: true
+        });
+        box.appendChild(s);
+        host.appendChild(box);
+      });
+  }
+
   function render(d) {
     if (!d) return;
     state.data = d;
@@ -512,6 +673,7 @@
     document.querySelector(".updated .dot").style.background = closed ? "#626c80" : "";
     document.querySelector(".updated .dot").style.animation = closed ? "none" : "";
     renderBoard(d);
+    renderIdx(d);
     renderPosts(d);
     renderNews(d);
     renderCal(d);

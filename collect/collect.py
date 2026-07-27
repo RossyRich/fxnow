@@ -300,6 +300,80 @@ def get_prices():
     return out
 
 
+# ---------- 6b. 通貨指数（ドル指数・円指数を日足から自前計算） ----------
+# 対象通貨に対する幾何平均で「その通貨の総合的な強さ」を出し、期初=100に正規化する。
+# 株価指数と違い外部の有料データに依存しないので自由に公開できる。
+
+IDX_DAYS = 90          # 表示する日数
+IDX_BASKET_JPY = ["USD_JPY", "EUR_JPY", "GBP_JPY", "AUD_JPY",
+                  "NZD_JPY", "CAD_JPY", "CHF_JPY"]
+# ドル指数用: (ペア, USDが分子ならTrue)
+IDX_BASKET_USD = [("USD_JPY", True), ("EUR_USD", False), ("GBP_USD", False),
+                  ("AUD_USD", False), ("NZD_USD", False),
+                  ("USD_CAD", True), ("USD_CHF", True)]
+
+
+def _gmo_daily(sym, year):
+    """{日付(YYYY-MM-DD): 終値} を返す"""
+    out = {}
+    k = json.loads(fetch("%s/klines?symbol=%s&priceType=BID&interval=1day&date=%s"
+                         % (GMO_BASE, sym, year)))
+    for c in k.get("data") or []:
+        d = datetime.fromtimestamp(int(c["openTime"]) / 1000, JST).strftime("%Y-%m-%d")
+        out[d] = float(c["close"])
+    return out
+
+
+def get_currency_index():
+    """ドル指数・円指数の日足シリーズを返す"""
+    year = datetime.now(JST).strftime("%Y")
+    need = ["USD_JPY", "EUR_JPY", "GBP_JPY", "AUD_JPY", "NZD_JPY",
+            "CAD_JPY", "CHF_JPY", "EUR_USD", "GBP_USD", "AUD_USD", "NZD_USD"]
+    series = {}
+    try:
+        for s in need:
+            series[s] = _gmo_daily(s, year)
+        # クロスレートを合成（GMOに無い USD/CAD・USD/CHF）
+        for base in ("CAD", "CHF"):
+            src, dst = series[base + "_JPY"], {}
+            for d, v in series["USD_JPY"].items():
+                if d in src and src[d]:
+                    dst[d] = v / src[d]
+            series["USD_" + base] = dst
+    except Exception as e:
+        log("currency index failed: %r" % e)
+        return None
+
+    dates = sorted(set.intersection(*[set(series[s]) for s in series]))[-IDX_DAYS:]
+    if len(dates) < 10:
+        log("currency index: not enough days (%d)" % len(dates))
+        return None
+
+    def build(items):
+        vals = []
+        for d in dates:
+            prod = 1.0
+            for sym, numer in items:
+                r = series[sym][d]
+                prod *= r if numer else (1.0 / r)
+            vals.append(prod ** (1.0 / len(items)))
+        base = vals[0]
+        return [round(v / base * 100, 2) for v in vals]
+
+    usd = build(IDX_BASKET_USD)
+    # 円指数は「円が分子」＝各クロス円の逆数
+    jpy = build([(s, False) for s in IDX_BASKET_JPY])
+    out = {
+        "dates": dates,
+        "usd": usd,
+        "jpy": jpy,
+        "usdChange": round(usd[-1] - usd[-2], 2) if len(usd) > 1 else 0,
+        "jpyChange": round(jpy[-1] - jpy[-2], 2) if len(jpy) > 1 else 0,
+    }
+    log("currency index: %d days, USD=%.2f JPY=%.2f" % (len(dates), usd[-1], jpy[-1]))
+    return out
+
+
 # ---------- 7. OANDAオープンオーダー ----------
 
 OO_BINS = 12      # 現値の上下それぞれのビン数
@@ -427,6 +501,7 @@ def main():
         "updatedAt": datetime.now(JST).strftime("%Y-%m-%d %H:%M JST"),
         "pairs": pairs_out,
         "posts": feed,
+        "ccyIndex": get_currency_index(),
         "newsJp": get_minkabu_news(),
         "newsEn": get_forexlive(),
         "reddit": get_reddit(),
