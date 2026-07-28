@@ -57,6 +57,7 @@
   }
   h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   h2 b { color: var(--ink); font-size: 1rem; letter-spacing: .06em; white-space: nowrap; }
+  h2 #calDate { color: var(--accent); font-size: .8rem; letter-spacing: .04em; white-space: nowrap; }
 
   /* ---------- sentiment board ---------- */
   .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 12px; margin-top: 18px; }
@@ -355,7 +356,7 @@
   </div><!-- /view-sns -->
 
   <div id="view-cal" style="display:none">
-  <h2><b>本日の経済指標</b>CALENDAR — TODAY</h2>
+  <h2><b>本日の経済指標</b><span id="calDate"></span>CALENDAR</h2>
   <div class="cal-tools">
     <button class="chip reload-btn">↻ 最新に更新</button>
     <span class="cal-stamp"></span>
@@ -366,7 +367,7 @@
     <tbody id="cal"></tbody>
   </table>
   </div>
-  <p class="note">本日発表の経済指標（外為どっとコム）。発表の3分前から収集を高速化し、結果は発表から2〜3分程度で「結果」欄に自動表示されます。発表済みの行は薄く表示。重要度は★3=高・★2=中・★1=低。日付が変わると翌日の指標に切り替わります。</p>
+  <p class="note">本日発表の経済指標（外為どっとコム）。発表の3分前から収集を高速化し、結果は発表から2〜3分程度で「結果」欄に自動表示されます。発表済みの行は薄く表示。重要度は★3=高・★2=中・★1=低。<b>25:00・27:00などは翌日の深夜1時・3時</b>を表します（翌日の指標へは朝6時に切り替わります）。</p>
   </div><!-- /view-cal -->
 
   <footer>
@@ -531,6 +532,7 @@
         "</td><td>" + esc(e.previous || "—") + "</td></tr>";
     }).join("");
     document.getElementById("cal").innerHTML = rows || '<tr><td colspan="7" class="empty">本日の指標はありません</td></tr>';
+    document.getElementById("calDate").textContent = d.calDate || "";
     document.getElementById("calCnt").textContent = upcoming ? "(" + upcoming + ")" : "";
   }
 
@@ -704,11 +706,17 @@
   }
 
   // 指標発表の3分前〜発表後20分で結果待ちのものがあるか（会見・演説は対象外）
+  // 深夜の指標は "27:00"（＝翌3時）形式。朝6時起点の通し分で比較する
   var NO_RESULT_WORDS = ["会見", "演説", "講演", "証言", "発言", "休場"];
+  var CAL_ROLLOVER_HOUR = 6;
+  function nowMinutes() {
+    var jst = new Date(Date.now() + 9 * 3600 * 1000);
+    var h = jst.getUTCHours();
+    return h * 60 + jst.getUTCMinutes() + (h < CAL_ROLLOVER_HOUR ? 24 * 60 : 0);
+  }
   function hotWindow(d) {
     if (!d || !d.calendar) return false;
-    var jst = new Date(Date.now() + 9 * 3600 * 1000);
-    var mins = jst.getUTCHours() * 60 + jst.getUTCMinutes();
+    var mins = nowMinutes();
     return d.calendar.some(function (e) {
       if (e.result || !e.time || e.time.indexOf(":") < 0) return false;
       if (NO_RESULT_WORDS.some(function (w) { return (e.title || "").indexOf(w) >= 0; })) return false;

@@ -223,11 +223,20 @@ GAITAME_COUNTRY = {"JPY": "日", "USD": "米", "EUR": "欧", "GBP": "英", "AUD"
                    "NOK": "ノルウェー", "SEK": "スウェーデン", "PLZ": "ポーランド"}
 
 
+CAL_ROLLOVER_HOUR = 6   # 朝6時までは前日分を表示（深夜25時・26時の指標を見逃さないため）
+
+
+def cal_date(now=None):
+    """指標カレンダーの対象日（朝6時前は前日）"""
+    now = now or datetime.now(JST)
+    return now - timedelta(days=1) if now.hour < CAL_ROLLOVER_HOUR else now
+
+
 def get_calendar():
     """外為どっとコムの経済指標APIから本日分を取得（日本語・結果は発表後すぐ反映）"""
     items = []
     try:
-        today = datetime.now(JST).strftime("%Y%m%d")
+        today = cal_date().strftime("%Y%m%d")
         d = json.loads(fetch(
             "https://navi.gaitame.com/v3/info/indicators/calendar?from=%s&to=%s"
             % (today, today),
@@ -497,8 +506,10 @@ def main():
         feed.append(x)
     feed = feed[:90]
 
+    cd = cal_date()
     data = {
         "updatedAt": datetime.now(JST).strftime("%Y-%m-%d %H:%M JST"),
+        "calDate": "%d/%d(%s)" % (cd.month, cd.day, "月火水木金土日"[cd.weekday()]),
         "pairs": pairs_out,
         "posts": feed,
         "ccyIndex": get_currency_index(),
@@ -517,9 +528,13 @@ def main():
     # 指標発表の3分前〜発表後20分（結果未反映の間）は hot.txt=1
     # （ワークフローがこれを見て収集間隔を60秒に短縮する）
     # 会見・演説など数値結果が出ないイベントは対象外
+    # 深夜の指標は "27:00"（＝翌3時）形式なので、6時起点の通し分で比較する
     no_result_words = ("会見", "演説", "講演", "証言", "発言", "休場")
     hot = "0"
     now = datetime.now(JST)
+    now_min = now.hour * 60 + now.minute
+    if now.hour < CAL_ROLLOVER_HOUR:
+        now_min += 24 * 60
     for e in data["calendar"]:
         t = e.get("time") or ""
         if ":" not in t or e.get("result"):
@@ -528,10 +543,10 @@ def main():
             continue
         try:
             hh, mm = t.split(":")
-            at = now.replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+            ev_min = int(hh) * 60 + int(mm)
         except ValueError:
             continue
-        if timedelta(minutes=-3) <= now - at <= timedelta(minutes=20):
+        if -3 <= now_min - ev_min <= 20:
             hot = "1"
             break
     with open(os.path.join(ROOT, "hot.txt"), "w") as f:
