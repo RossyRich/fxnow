@@ -383,6 +383,46 @@ def get_currency_index():
     return out
 
 
+# ---------- 6c. 通貨強弱（OANDA） ----------
+# 朝6時JSTを起点に、8通貨の強さを5分足で追った系列。無料で取れるのは type=current&granularity=M5 のみ。
+
+CPB_ORDER = ["USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "NZD"]
+
+
+def get_power_balance():
+    """通貨強弱の系列を返す（時刻は全通貨共通なので分離して持つ）"""
+    try:
+        d = json.loads(fetch(
+            "https://widget.oanda.jp/api/currency-power-balance?type=current&granularity=M5",
+            headers={"X-OANDA-WIDGET-API": "currency-power-balance",
+                     "Accept": "application/json"}))
+        if not isinstance(d, list) or not d:
+            log("power balance: unexpected payload")
+            return None
+        base = d[0].get("data") or []
+        times = [datetime.fromtimestamp(p[0] / 1000, JST).strftime("%H:%M") for p in base]
+        series = {}
+        for c in d:
+            name = c.get("name")
+            if not name:
+                continue
+            series[name] = [round(float(p[1]), 2) for p in (c.get("data") or [])]
+        names = [n for n in CPB_ORDER if n in series] + \
+                [n for n in series if n not in CPB_ORDER]
+        out = {
+            "times": times,
+            "names": names,
+            "series": series,
+            "updatedAt": datetime.now(JST).strftime("%H:%M"),
+        }
+        rank = sorted(names, key=lambda n: -series[n][-1])
+        log("power balance: %d pts, 強い順=%s" % (len(times), "/".join(rank)))
+        return out
+    except Exception as e:
+        log("power balance failed: %r" % e)
+        return None
+
+
 # ---------- 7. OANDAオープンオーダー ----------
 
 OO_BINS = 12      # 現値の上下それぞれのビン数
@@ -512,6 +552,7 @@ def main():
         "calDate": "%d/%d(%s)" % (cd.month, cd.day, "月火水木金土日"[cd.weekday()]),
         "pairs": pairs_out,
         "posts": feed,
+        "powerBalance": get_power_balance(),
         "ccyIndex": get_currency_index(),
         "newsJp": get_minkabu_news(),
         "newsEn": get_forexlive(),

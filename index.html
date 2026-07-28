@@ -145,6 +145,22 @@
   .news-item .d { font-size: .66rem; color: var(--ink3); margin-top: 1px; }
 
   /* ---------- calendar ---------- */
+  /* ---------- 通貨強弱タブ ---------- */
+  .pb-card { padding: 14px 12px 10px; }
+  .pb-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .pb-chip {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel2); color: var(--ink);
+    border-radius: 999px; padding: 7px 12px; font-family: inherit; font-size: .74rem;
+    font-weight: 700; letter-spacing: .04em; transition: opacity .15s;
+  }
+  .pb-chip i { width: 9px; height: 9px; border-radius: 50%; display: block; flex: none; }
+  .pb-chip .v { font-weight: 600; font-size: .7rem; color: var(--ink2); font-feature-settings: "tnum"; }
+  .pb-chip.off { opacity: .34; }
+  .pb-chip.off .v { color: var(--ink3); }
+  .pb-chart-wrap { position: relative; }
+  #pbChart { width: 100%; height: 300px; display: block; overflow: visible; }
+
   /* ---------- 指数タブ ---------- */
   .idx-card { padding: 16px 14px 10px; }
   .idx-head { display: flex; gap: 22px; flex-wrap: wrap; font-size: .78rem; color: var(--ink2); }
@@ -192,7 +208,10 @@
     display: flex; gap: 4px; position: sticky; top: 0; z-index: 40;
     background: var(--bg); padding: 8px 0 0; margin-top: 6px;
     border-bottom: 1px solid var(--line);
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; }
   .tab {
     background: none; border: none; cursor: pointer; font-family: inherit;
     font-size: .84rem; color: var(--ink3); font-weight: 700; letter-spacing: .06em;
@@ -278,6 +297,7 @@
 
   <nav class="tabs">
     <button class="tab on" data-view="board">売買目線</button>
+    <button class="tab" data-view="pb">通貨強弱</button>
     <button class="tab" data-view="idx">指数</button>
     <button class="tab" data-view="sns">Xの投稿</button>
     <button class="tab" data-view="cal" id="tabCal">経済指標<span class="cnt" id="calCnt"></span></button>
@@ -297,6 +317,25 @@
   </p>
 
   </div><!-- /view-board -->
+
+  <div id="view-pb" style="display:none">
+  <h2><b>通貨強弱</b>CURRENCY POWER BALANCE</h2>
+  <div class="cal-tools">
+    <button class="chip reload-btn">↻ 最新に更新</button>
+    <span class="cal-stamp"></span>
+  </div>
+  <div class="card pb-card">
+    <div class="pb-legend" id="pbLegend"></div>
+    <div class="pb-chart-wrap">
+      <svg id="pbChart" viewBox="0 0 640 300" preserveAspectRatio="none"></svg>
+      <div class="idx-tip" id="pbTip"></div>
+    </div>
+  </div>
+  <p class="note">
+    OANDAの通貨強弱（本日6時を0とした、8通貨それぞれの強さの推移／5分足）。上にあるほど買われている通貨です。
+    <b>通貨名をタップすると表示・非表示を切り替えられます</b>（次回も記憶されます）。チャートをなぞると各通貨の値が出ます。
+  </p>
+  </div><!-- /view-pb -->
 
   <div id="view-idx" style="display:none">
   <h2><b>通貨指数</b>CURRENCY STRENGTH</h2>
@@ -537,7 +576,7 @@
   }
 
   // ビュー切替タブ
-  var VIEWS = { board: "view-board", idx: "view-idx", sns: "view-sns", cal: "view-cal" };
+  var VIEWS = { board: "view-board", pb: "view-pb", idx: "view-idx", sns: "view-sns", cal: "view-cal" };
   Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (t) {
     t.onclick = function () {
       Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (x) { x.classList.remove("on"); });
@@ -556,6 +595,126 @@
     var jst = new Date(Date.now() + 9 * 3600 * 1000);
     var dow = jst.getUTCDay(), h = jst.getUTCHours();  // 0=日 6=土
     return (dow === 6 && h >= 7) || dow === 0 || (dow === 1 && h < 7);
+  }
+
+  // ---------- 通貨強弱（OANDA） ----------
+  var PB_COLOR = {
+    USD: "#ffd166", EUR: "#a78bfa", GBP: "#ff7ab8", JPY: "#4da3ff",
+    CHF: "#ff6b5a", AUD: "#3ddc84", CAD: "#22d3ee", NZD: "#d4d4d8"
+  };
+  var PB_JP = {
+    USD: "米ドル", EUR: "ユーロ", GBP: "ポンド", JPY: "円",
+    CHF: "フラン", AUD: "豪ドル", CAD: "カナダ", NZD: "NZドル"
+  };
+  var PB_W = 640, PB_H = 300, PB_PAD = { t: 12, r: 52, b: 20, l: 8 };
+  var pbHidden = (function () {
+    try { return JSON.parse(localStorage.getItem("fxnow_pb_hidden") || "[]"); }
+    catch (e) { return []; }
+  })();
+
+  function renderPB(d) {
+    var p = d.powerBalance, svg = document.getElementById("pbChart");
+    var legend = document.getElementById("pbLegend");
+    if (!p || !p.times || !p.times.length) {
+      svg.innerHTML = '<text x="320" y="150" fill="#626c80" font-size="13" text-anchor="middle">データ取得中…</text>';
+      return;
+    }
+    var n = p.times.length;
+    var shown = p.names.filter(function (c) { return pbHidden.indexOf(c) < 0; });
+
+    // 凡例（タップで表示切替）
+    legend.innerHTML = p.names.map(function (c) {
+      var last = p.series[c][n - 1];
+      return '<button class="pb-chip' + (pbHidden.indexOf(c) < 0 ? "" : " off") + '" data-c="' + c + '">' +
+        '<i style="background:' + PB_COLOR[c] + '"></i>' + esc(PB_JP[c] || c) +
+        '<span class="v">' + (last > 0 ? "+" : "") + last.toFixed(2) + "</span></button>";
+    }).join("");
+    Array.prototype.forEach.call(legend.querySelectorAll(".pb-chip"), function (b) {
+      b.onclick = function () {
+        var c = b.getAttribute("data-c"), i = pbHidden.indexOf(c);
+        if (i < 0) pbHidden.push(c); else pbHidden.splice(i, 1);
+        try { localStorage.setItem("fxnow_pb_hidden", JSON.stringify(pbHidden)); } catch (e) {}
+        renderPB(state.data || d);
+      };
+    });
+
+    if (!shown.length) {
+      svg.innerHTML = '<text x="320" y="150" fill="#626c80" font-size="12" text-anchor="middle">通貨を選んでください</text>';
+      return;
+    }
+
+    var lo = Infinity, hi = -Infinity;
+    shown.forEach(function (c) {
+      p.series[c].forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; });
+    });
+    var pad = (hi - lo) * 0.12 || 0.5;
+    lo -= pad; hi += pad;
+    var iw = PB_W - PB_PAD.l - PB_PAD.r, ih = PB_H - PB_PAD.t - PB_PAD.b;
+    var X = function (i) { return PB_PAD.l + i / (n - 1) * iw; };
+    var Y = function (v) { return PB_PAD.t + (hi - v) / (hi - lo) * ih; };
+
+    var g = "";
+    var range = hi - lo;
+    var step = range > 8 ? 2 : (range > 4 ? 1 : 0.5);
+    for (var v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      var zero = Math.abs(v) < 1e-9;
+      g += '<line x1="' + PB_PAD.l + '" x2="' + (PB_PAD.l + iw) + '" y1="' + Y(v) + '" y2="' + Y(v) +
+        '" stroke="' + (zero ? "#39435a" : "#1c2333") + '" stroke-width="1"' + (zero ? ' stroke-dasharray="4 4"' : "") + "/>" +
+        '<text x="' + (PB_PAD.l + iw + 6) + '" y="' + (Y(v) + 3.5) + '" fill="#626c80" font-size="10">' +
+        (v > 0 ? "+" : "") + (Math.round(v * 10) / 10) + "</text>";
+    }
+    // 時刻の区切り（3時間ごと＝36本ごと）
+    p.times.forEach(function (t, i) {
+      if (i && i % 36 === 0) {
+        g += '<line x1="' + X(i) + '" x2="' + X(i) + '" y1="' + PB_PAD.t + '" y2="' + (PB_PAD.t + ih) +
+          '" stroke="#1c2333" stroke-width="1"/>' +
+          '<text x="' + (X(i) + 4) + '" y="' + (PB_H - 5) + '" fill="#626c80" font-size="10">' + esc(t) + "</text>";
+      }
+    });
+    // 弱い順に描いて、強い通貨の線が上に来るようにする
+    shown.slice().sort(function (a, b) {
+      return p.series[a][n - 1] - p.series[b][n - 1];
+    }).forEach(function (c) {
+      var arr = p.series[c];
+      var pts = arr.map(function (v, i) { return X(i) + "," + Y(v); }).join(" ");
+      g += '<polyline points="' + pts + '" fill="none" stroke="' + PB_COLOR[c] +
+        '" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<circle cx="' + X(n - 1) + '" cy="' + Y(arr[n - 1]) + '" r="3" fill="' + PB_COLOR[c] + '"/>' +
+        '<text x="' + (X(n - 1) + 6) + '" y="' + (Y(arr[n - 1]) - 5) + '" fill="' + PB_COLOR[c] +
+        '" font-size="9.5" font-weight="700">' + c + "</text>";
+    });
+    g += '<line id="pbCross" x1="0" x2="0" y1="' + PB_PAD.t + '" y2="' + (PB_PAD.t + ih) +
+      '" stroke="#626c80" stroke-width="1" style="display:none"/>';
+    g += '<rect id="pbHit" x="' + PB_PAD.l + '" y="' + PB_PAD.t + '" width="' + iw + '" height="' + ih + '" fill="transparent"/>';
+    svg.innerHTML = g;
+
+    var hit = document.getElementById("pbHit"), cross = document.getElementById("pbCross");
+    var tip = document.getElementById("pbTip"), wrap = svg.parentNode;
+    function move(ev) {
+      var r = svg.getBoundingClientRect();
+      var px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * PB_W;
+      var i = Math.max(0, Math.min(n - 1, Math.round((px - PB_PAD.l) / iw * (n - 1))));
+      cross.style.display = "";
+      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i));
+      var rows = shown.slice().sort(function (a, b) { return p.series[b][i] - p.series[a][i]; })
+        .map(function (c) {
+          var v = p.series[c][i];
+          return '<div><span style="color:' + PB_COLOR[c] + '">■</span> ' + esc(PB_JP[c] || c) +
+            " " + (v > 0 ? "+" : "") + v.toFixed(2) + "</div>";
+        }).join("");
+      tip.style.display = "block";
+      tip.innerHTML = '<div class="d">' + esc(p.times[i]) + "</div>" + rows;
+      var left = X(i) / PB_W * wrap.clientWidth + 12;
+      if (left > wrap.clientWidth - 120) left -= 140;
+      tip.style.left = Math.max(0, left) + "px";
+      tip.style.top = "6px";
+    }
+    hit.addEventListener("mousemove", move);
+    hit.addEventListener("touchstart", move);
+    hit.addEventListener("touchmove", move);
+    hit.addEventListener("mouseleave", function () {
+      cross.style.display = "none"; tip.style.display = "none";
+    });
   }
 
   // ---------- 通貨指数チャート ----------
@@ -675,6 +834,7 @@
     document.querySelector(".updated .dot").style.background = closed ? "#626c80" : "";
     document.querySelector(".updated .dot").style.animation = closed ? "none" : "";
     renderBoard(d);
+    renderPB(d);
     renderIdx(d);
     renderPosts(d);
     renderNews(d);
