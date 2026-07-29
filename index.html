@@ -145,6 +145,11 @@
   .news-item .d { font-size: .66rem; color: var(--ink3); margin-top: 1px; }
 
   /* ---------- calendar ---------- */
+  /* ---------- チャートタブ ---------- */
+  .chart-card { padding: 6px; }
+  .tv-chart { height: 520px; border-radius: 6px; overflow: hidden; }
+  @media (max-width: 600px) { .tv-chart { height: 420px; } }
+
   /* ---------- 通貨強弱タブ ---------- */
   .pb-card { padding: 14px 12px 10px; }
   .pb-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
@@ -212,6 +217,14 @@
   }
   .tabs::-webkit-scrollbar { display: none; }
   .tab { flex: none; }
+  /* 右にまだタブがある時のフェード表示 */
+  .tabs-wrap { position: relative; }
+  .tabs-wrap::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 1px; width: 34px;
+    background: linear-gradient(90deg, rgba(12,15,22,0), var(--bg) 78%);
+    pointer-events: none; opacity: 0; transition: opacity .2s;
+  }
+  .tabs-wrap.has-more::after { opacity: 1; }
   .tab {
     background: none; border: none; cursor: pointer; font-family: inherit;
     font-size: .84rem; color: var(--ink3); font-weight: 700; letter-spacing: .06em;
@@ -295,15 +308,26 @@
     </div>
   </div>
 
-  <nav class="tabs">
-    <button class="tab on" data-view="board">売買目線</button>
+  <div class="tabs-wrap"><nav class="tabs">
+    <button class="tab on" data-view="chart">チャート</button>
+    <button class="tab" data-view="board">売買目線</button>
     <button class="tab" data-view="pb">通貨強弱</button>
     <button class="tab" data-view="idx">指数</button>
     <button class="tab" data-view="sns">Xの投稿</button>
     <button class="tab" data-view="cal" id="tabCal">経済指標<span class="cnt" id="calCnt"></span></button>
-  </nav>
+  </nav></div>
 
-  <div id="view-board">
+  <div id="view-chart">
+  <h2><b>リアルタイムチャート</b>LIVE CHART</h2>
+  <div class="chips" id="chartChips"></div>
+  <div class="card chart-card"><div id="tvChart" class="tv-chart"></div></div>
+  <p class="note">
+    価格はリアルタイムで自動更新されます（更新ボタン不要）。チャート内の「1分・5分・1時間」などをタップすると時間足を切り替えられます。
+    指標やインジケーターの追加、拡大・縮小も可能です。
+  </p>
+  </div><!-- /view-chart -->
+
+  <div id="view-board" style="display:none">
   <h2><b>売買目線</b>SENTIMENT — 7 PAIRS</h2>
   <div class="cal-tools">
     <button class="chip reload-btn">↻ 最新に更新</button>
@@ -576,7 +600,8 @@
   }
 
   // ビュー切替タブ
-  var VIEWS = { board: "view-board", pb: "view-pb", idx: "view-idx", sns: "view-sns", cal: "view-cal" };
+  var VIEWS = { chart: "view-chart", board: "view-board", pb: "view-pb",
+                idx: "view-idx", sns: "view-sns", cal: "view-cal" };
   Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (t) {
     t.onclick = function () {
       Array.prototype.forEach.call(document.querySelectorAll(".tabs .tab"), function (x) { x.classList.remove("on"); });
@@ -586,6 +611,7 @@
         document.getElementById(VIEWS[k]).style.display = (k === v) ? "" : "none";
       });
       if (v === "idx") loadTV();   // 株価指数は開いたときに初めて読み込む
+      if (v === "chart" && !document.querySelector("#tvChart iframe")) buildChart();
       window.scrollTo(0, 0);
     };
   });
@@ -595,6 +621,58 @@
     var jst = new Date(Date.now() + 9 * 3600 * 1000);
     var dow = jst.getUTCDay(), h = jst.getUTCHours();  // 0=日 6=土
     return (dow === 6 && h >= 7) || dow === 0 || (dow === 1 && h < 7);
+  }
+
+  // ---------- リアルタイムチャート（TradingView） ----------
+  var CHART_PAIRS = [
+    { s: "USDJPY", t: "ドル円" }, { s: "EURUSD", t: "ユーロドル" },
+    { s: "GBPUSD", t: "ポンドドル" }, { s: "AUDUSD", t: "豪ドルドル" },
+    { s: "EURJPY", t: "ユーロ円" }, { s: "GBPJPY", t: "ポンド円" },
+    { s: "AUDJPY", t: "豪ドル円" }
+  ];
+  var chartPair = (function () {
+    try { return localStorage.getItem("fxnow_chart_pair") || "USDJPY"; }
+    catch (e) { return "USDJPY"; }
+  })();
+
+  function buildChart() {
+    if (location.protocol.indexOf("http") !== 0) return;
+    var host = document.getElementById("tvChart");
+    host.innerHTML = "";
+    var box = document.createElement("div");
+    box.className = "tradingview-widget-container";
+    box.style.height = "100%";
+    var inner = document.createElement("div");
+    inner.className = "tradingview-widget-container__widget";
+    inner.style.height = "100%";
+    var s = document.createElement("script");
+    s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    s.async = true;
+    s.innerHTML = JSON.stringify({
+      autosize: true, symbol: "FX:" + chartPair, interval: "5",
+      timezone: "Asia/Tokyo", theme: "dark", style: "1", locale: "ja",
+      backgroundColor: "rgba(18,23,34,1)", gridColor: "rgba(35,43,61,0.5)",
+      hide_side_toolbar: true, allow_symbol_change: false, save_image: false,
+      withdateranges: false, hide_volume: false
+    });
+    box.appendChild(inner);
+    box.appendChild(s);
+    host.appendChild(box);
+  }
+
+  function renderChartChips() {
+    var el = document.getElementById("chartChips");
+    el.innerHTML = CHART_PAIRS.map(function (p) {
+      return '<button class="chip' + (p.s === chartPair ? " on" : "") + '" data-s="' + p.s + '">' + p.t + "</button>";
+    }).join("");
+    Array.prototype.forEach.call(el.querySelectorAll(".chip"), function (b) {
+      b.onclick = function () {
+        chartPair = b.getAttribute("data-s");
+        try { localStorage.setItem("fxnow_chart_pair", chartPair); } catch (e) {}
+        renderChartChips();
+        buildChart();
+      };
+    });
   }
 
   // ---------- 通貨強弱（OANDA） ----------
@@ -905,8 +983,21 @@
     modal.onclick = function (e) { if (e.target === modal) modal.classList.remove("open"); };
   })();
 
+  // タブが右に続くときフェードを出す
+  (function () {
+    var nav = document.querySelector(".tabs"), wrap = document.querySelector(".tabs-wrap");
+    function upd() {
+      wrap.classList.toggle("has-more", nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2);
+    }
+    nav.addEventListener("scroll", upd);
+    window.addEventListener("resize", upd);
+    upd();
+  })();
+
   render(window.FX_DATA);          // file:// でも即表示
+  renderChartChips();
   if (location.protocol.indexOf("http") === 0) {
+    buildChart();                  // 初期表示のタブなので最初から描く
     refresh();
     setInterval(refresh, 5 * 60 * 1000);
     // 指標の結果待ち中は10秒ごとに新データを確認
