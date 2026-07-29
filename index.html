@@ -410,7 +410,7 @@
     </div>
   </div>
   <p class="note">
-    <b>おすすめ通貨ペア</b>は、グラフの高さ（そこまでの累計）ではなく<b>直近の向き</b>で判定しています。30分・1時間・2時間の傾きを重み付けし、同じ向きが続いている時間が長いほど高く評価します。方向感が乏しい時は「様子見」と表示します。投資判断はご自身の責任でお願いします。<br>
+    <b>おすすめ通貨ペア</b>は、グラフの高さ（そこまでの累計）ではなく<b>直近の向き</b>で判定しています。30分・1時間・2時間の傾きを重み付けし、同じ向きが続いている時間が長いほど高く評価します。スプレッドの広いマイナーペアは避け、<b>当サイトで扱う11ペアの中</b>から選んでいます。方向感が乏しい時は「様子見」と表示します。投資判断はご自身の責任でお願いします。<br>
     グラフはOANDAの通貨強弱（本日6時を0とした、8通貨それぞれの強さの推移／5分足）。上にあるほど買われている通貨です。
     <b>通貨名をタップすると表示・非表示を切り替えられます</b>（次回も記憶されます）。チャートをなぞると各通貨の値が出ます。
   </p>
@@ -822,8 +822,7 @@
   // 「今の強さ」＝グラフの高さではなく直近の向き。
   // 30分/1時間/2時間の傾き（%/時）を重み付けし、同じ向きが続いた長さで補正する。
   var PB_WINDOWS = [{ n: 6, w: 0.5 }, { n: 12, w: 0.3 }, { n: 24, w: 0.2 }];
-  // 通貨ペアの慣習的な表記順（左にあるほど基軸として先に書く）
-  var CCY_ORDER = ["EUR", "GBP", "AUD", "NZD", "USD", "CAD", "CHF", "JPY"];
+  // おすすめの対象は当サイトで扱う11ペアのみ（マイナーペアはスプレッドが広く不利なため）
   var MAJOR_PAIRS = ["USDJPY", "EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDCHF",
                      "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CHFJPY"];
 
@@ -877,14 +876,6 @@
     }).filter(Boolean);
   }
 
-  function quotePair(a, b) {
-    // a=買いたい通貨, b=売りたい通貨 → 慣習的な並びとロング/ショートに直す
-    var ia = CCY_ORDER.indexOf(a), ib = CCY_ORDER.indexOf(b);
-    return (ia <= ib)
-      ? { sym: a + b, base: a, quote: b, dir: "long" }
-      : { sym: b + a, base: b, quote: a, dir: "short" };
-  }
-
   function pairName(sym) {
     return PAIR_LABELS[sym] || (CCY_JP[sym.slice(0, 3)] + "/" + CCY_JP[sym.slice(3)]);
   }
@@ -904,61 +895,46 @@
       host.innerHTML = '<h3>今のおすすめ通貨ペア</h3><p class="reco-none">判定に必要なデータが足りません。</p>';
       return;
     }
-    sc.sort(function (a, b) { return b.score - a.score; });
-    var top = sc[0], bot = sc[sc.length - 1];
+    // 取扱いのある11ペアの中から、強弱差が最も大きい組み合わせを選ぶ
+    // （マイナーペアはスプレッドが広く実際に取引しづらいため対象外）
+    var byC = {};
+    sc.forEach(function (x) { byC[x.c] = x; });
+    var best = null;
+    MAJOR_PAIRS.forEach(function (sym) {
+      var a = byC[sym.slice(0, 3)], b = byC[sym.slice(3)];
+      if (!a || !b) return;
+      var diff = Math.abs(a.score - b.score);
+      if (!best || diff > best.diff) {
+        best = { sym: sym, diff: diff,
+                 dir: (a.score >= b.score) ? "long" : "short",
+                 strong: (a.score >= b.score) ? a : b,
+                 weak: (a.score >= b.score) ? b : a };
+      }
+    });
 
     // 動きが小さすぎる時は無理に出さない
-    if (top.score - bot.score < 0.25) {
+    if (!best || best.diff < 0.25) {
       host.innerHTML = '<h3>今のおすすめ通貨ペア</h3>' +
         '<p class="reco-none">今はどの通貨も方向感が乏しく、はっきりした強弱が出ていません。' +
         '（様子見が無難な場面です）</p>';
       return;
     }
 
-    var best = quotePair(top.c, bot.c);
     var dirJp = function (dir) { return dir === "long" ? "ロング（買い）" : "ショート（売り）"; };
     var arrow = function (v) { return v >= 0 ? "↗" : "↘"; };
+    var s = best.strong, w = best.weak;
 
-    // メジャー通貨ペアの中での最良（強弱差が最大になる組み合わせ）
-    var byC = {};
-    sc.forEach(function (x) { byC[x.c] = x; });
-    var major = null;
-    MAJOR_PAIRS.forEach(function (sym) {
-      var a = byC[sym.slice(0, 3)], b = byC[sym.slice(3)];
-      if (!a || !b) return;
-      var diff = Math.abs(a.score - b.score);
-      if (!major || diff > major.diff) {
-        major = { sym: sym, diff: diff,
-                  dir: (a.score >= b.score) ? "long" : "short",
-                  strong: (a.score >= b.score) ? a : b,
-                  weak: (a.score >= b.score) ? b : a };
-      }
-    });
-
-    var html = '<h3>今のおすすめ通貨ペア</h3>' +
+    host.innerHTML = '<h3>今のおすすめ通貨ペア</h3>' +
       '<div class="reco-row">' +
-        '<span class="reco-lbl">理論上の最良</span>' +
         '<span class="reco-pair">' + esc(pairName(best.sym)) + "</span>" +
         '<span class="reco-dir ' + best.dir + '">' + dirJp(best.dir) + "</span>" +
       "</div>" +
       '<p class="reco-why">' +
-        "最強は<b>" + esc(CCY_JP[top.c]) + "</b>（直近30分 " + arrow(top.s30) + " " +
-        (top.s30 >= 0 ? "+" : "") + top.s30.toFixed(2) + "／" + top.mins + "分継続）、" +
-        "最弱は<b>" + esc(CCY_JP[bot.c]) + "</b>（同 " + arrow(bot.s30) + " " +
-        (bot.s30 >= 0 ? "+" : "") + bot.s30.toFixed(2) + "／" + bot.mins + "分継続）。" +
+        "買い側の<b>" + esc(CCY_JP[s.c]) + "</b>が強い（直近30分 " + arrow(s.s30) + " " +
+        (s.s30 >= 0 ? "+" : "") + s.s30.toFixed(2) + "／" + s.mins + "分継続）、" +
+        "売り側の<b>" + esc(CCY_JP[w.c]) + "</b>が弱い（同 " + arrow(w.s30) + " " +
+        (w.s30 >= 0 ? "+" : "") + w.s30.toFixed(2) + "／" + w.mins + "分継続）。" +
       "</p>";
-
-    if (major && major.sym !== best.sym) {
-      html += '<div class="reco-row reco-sub">' +
-        '<span class="reco-lbl">メジャー通貨ペアの中で</span>' +
-        '<span class="reco-pair">' + esc(pairName(major.sym)) + "</span>" +
-        '<span class="reco-dir ' + major.dir + '">' + dirJp(major.dir) + "</span>" +
-      "</div>";
-    } else if (major) {
-      html += '<div class="reco-row reco-sub"><span class="reco-lbl">' +
-        "メジャー通貨ペアの中でも同じ組み合わせが最良です</span></div>";
-    }
-    host.innerHTML = html;
   }
 
   function renderPB(d) {
