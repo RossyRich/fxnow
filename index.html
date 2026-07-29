@@ -230,6 +230,19 @@
   footer { margin-top: 46px; padding-top: 16px; border-top: 1px solid var(--line); font-size: .66rem; color: var(--ink3); line-height: 1.9; }
 
   /* ---------- ビュー切替タブ ---------- */
+  /* ---------- 引っ張って更新（スマホ） ---------- */
+  .ptr {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    height: 52px; margin-top: -52px; pointer-events: none;
+    font-size: .74rem; color: var(--ink2); background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .ptr-ico { display: inline-block; font-size: .9rem; transition: transform .2s; }
+  .ptr.ready .ptr-ico { transform: rotate(180deg); color: var(--buy); }
+  .ptr.busy .ptr-ico { animation: ptrspin .9s linear infinite; }
+  @keyframes ptrspin { to { transform: rotate(360deg); } }
+
   /* 3列×2段。上段=チャート/通貨強弱/指数、下段=経済指標/売買目線/Xの投稿 */
   .tabs-wrap {
     position: sticky; top: 0; z-index: 40;
@@ -320,6 +333,8 @@
       <p class="tip">※ XやLINEなどアプリ内のブラウザで開いている場合は、いったんSafariやChromeで開き直してから操作してください。</p>
     </div>
   </div>
+
+  <div class="ptr" id="ptr"><span class="ptr-ico">↓</span><span class="ptr-txt">引っ張って更新</span></div>
 
   <div class="tabs-wrap"><nav class="tabs">
     <button class="tab on" data-view="chart">チャート</button>
@@ -1051,6 +1066,65 @@
       return mins >= t - 3 && mins - t <= 20;
     });
   }
+
+  // 引っ張って更新（スマホ）。ページ最上部からの下方向スワイプだけ拾う
+  (function () {
+    var el = document.getElementById("ptr");
+    var PULL_MAX = 90, TRIGGER = 62;
+    var startY = null, dist = 0, busy = false;
+
+    function show(px) {
+      el.style.transform = "translateY(" + px + "px)";
+      el.classList.toggle("ready", px >= TRIGGER);
+    }
+    function reset() {
+      el.style.transition = "transform .25s";
+      show(0);
+      setTimeout(function () { el.style.transition = ""; el.classList.remove("ready", "busy"); }, 260);
+    }
+
+    document.addEventListener("touchstart", function (e) {
+      startY = null;                                  // 前のタッチの状態を必ず捨てる
+      if (busy || e.touches.length !== 1) return;
+      // チャートなど横スクロールする要素の中では動かさない
+      var t = e.target;
+      while (t && t !== document.body) {
+        if (t.id === "tvChart" || t.classList &&
+            (t.classList.contains("cal-wrap") || t.classList.contains("tf-row") ||
+             t.classList.contains("idx-chart-wrap") || t.classList.contains("pb-chart-wrap"))) return;
+        t = t.parentNode;
+      }
+      startY = (window.scrollY <= 0) ? e.touches[0].clientY : null;
+      dist = 0;
+    }, { passive: true });
+
+    document.addEventListener("touchmove", function (e) {
+      if (startY === null || busy) return;
+      dist = e.touches[0].clientY - startY;
+      if (dist <= 0) { show(0); return; }
+      // 引くほど重くなる動き
+      show(Math.min(PULL_MAX, dist * 0.5));
+    }, { passive: true });
+
+    document.addEventListener("touchend", function () {
+      if (startY === null || busy) return;
+      var pulled = Math.min(PULL_MAX, dist * 0.5);
+      startY = null;
+      if (pulled < TRIGGER) { reset(); return; }
+      busy = true;
+      el.classList.add("busy");
+      el.querySelector(".ptr-txt").textContent = "更新中…";
+      show(TRIGGER);
+      calStamp("更新中…", false);
+      refresh().then(function () {
+        setTimeout(function () {
+          el.querySelector(".ptr-txt").textContent = "引っ張って更新";
+          busy = false;
+          reset();
+        }, 400);
+      });
+    }, { passive: true });
+  })();
 
   Array.prototype.forEach.call(document.querySelectorAll(".reload-btn"), function (btn) {
     btn.onclick = function () {
