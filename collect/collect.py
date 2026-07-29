@@ -34,9 +34,16 @@ PAIRS = [
     {"symbol": "EURUSD", "label": "ユーロ/ドル", "query": "ユーロドル", "digits": 4},
     {"symbol": "GBPUSD", "label": "ポンド/ドル", "query": "ポンドドル", "digits": 4},
     {"symbol": "AUDUSD", "label": "豪ドル/ドル", "query": "豪ドル",   "digits": 4},
+    {"symbol": "NZDUSD", "label": "キウイ/ドル", "query": "キウイドル", "digits": 4},
+    # GMOにUSD_CHFが無いので USD_JPY ÷ CHF_JPY で合成する
+    {"symbol": "USDCHF", "label": "ドル/スイス", "query": "ドルスイス", "digits": 4,
+     "synth": ("USD_JPY", "CHF_JPY")},
     {"symbol": "EURJPY", "label": "ユーロ/円",  "query": "ユーロ円",  "digits": 2},
     {"symbol": "GBPJPY", "label": "ポンド/円",  "query": "ポンド円",  "digits": 2},
     {"symbol": "AUDJPY", "label": "豪ドル/円",  "query": "豪ドル円",  "digits": 2},
+    {"symbol": "NZDJPY", "label": "キウイ/円",  "query": "キウイ円",  "digits": 2},
+    # 「スイス円」は仮想通貨の投稿が混ざるため検索語は「フラン円」を使う
+    {"symbol": "CHFJPY", "label": "スイス/円",  "query": "フラン円",  "digits": 2},
 ]
 
 def fetch(url, timeout=25, headers=None):
@@ -282,23 +289,38 @@ def get_prices():
         log("gmo ticker failed: %r" % e)
         return out
     year = datetime.now(JST).strftime("%Y")
+    prev_cache = {}
+
+    def prev_close(gmo_sym):
+        """前日終値（最終行は当日の進行中ローソクなので1本前を使う）"""
+        if gmo_sym not in prev_cache:
+            prev_cache[gmo_sym] = None
+            try:
+                k = json.loads(fetch(
+                    "%s/klines?symbol=%s&priceType=BID&interval=1day&date=%s"
+                    % (GMO_BASE, gmo_sym, year)))
+                candles = k.get("data") or []
+                if len(candles) >= 2:
+                    prev_cache[gmo_sym] = float(candles[-2]["close"])
+            except Exception as e:
+                log("gmo klines failed for %s: %r" % (gmo_sym, e))
+        return prev_cache[gmo_sym]
+
     for p in PAIRS:
         sym = p["symbol"]
-        bid = bids.get(sym)
+        synth = p.get("synth")
+        if synth:
+            a, b = bids.get(synth[0].replace("_", "")), bids.get(synth[1].replace("_", ""))
+            bid = (a / b) if (a and b) else None
+        else:
+            bid = bids.get(sym)
         if bid is None:
             continue
-        prev = None
-        try:
-            gmo_sym = sym[:3] + "_" + sym[3:]
-            k = json.loads(fetch(
-                "%s/klines?symbol=%s&priceType=BID&interval=1day&date=%s"
-                % (GMO_BASE, gmo_sym, year)))
-            candles = k.get("data") or []
-            # 最終行は当日の進行中ローソク → その1本前の終値が前日終値
-            if len(candles) >= 2:
-                prev = float(candles[-2]["close"])
-        except Exception as e:
-            log("gmo klines failed for %s: %r" % (sym, e))
+        if synth:
+            pa, pb = prev_close(synth[0]), prev_close(synth[1])
+            prev = (pa / pb) if (pa and pb) else None
+        else:
+            prev = prev_close(sym[:3] + "_" + sym[3:])
         fmt = "%%.%df" % p["digits"]
         item = {"price": fmt % bid}
         if prev:
@@ -536,15 +558,31 @@ def main():
 
     # 投稿フィードは新しい順・重複URL除去
     seen = set()
-    feed = []
+    uniq = []
     for x in sorted(all_posts, key=lambda v: -v["time"]):
         if x["url"] in seen:
             continue
         seen.add(x["url"])
         x = dict(x)
         x["timeStr"] = datetime.fromtimestamp(x["time"], JST).strftime("%m/%d %H:%M")
-        feed.append(x)
-    feed = feed[:90]
+        uniq.append(x)
+
+    # 投稿の少ないペアが埋もれないよう、まず1ペアあたり12件を確保してから
+    # 残りを新しい順で埋める（全体は新しい順に並べ直す）
+    FEED_MAX, PER_PAIR = 130, 12
+    picked, cnt = [], {}
+    for x in uniq:
+        c = cnt.get(x["pair"], 0)
+        if c < PER_PAIR:
+            cnt[x["pair"]] = c + 1
+            picked.append(x)
+    chosen = {id(x) for x in picked}
+    for x in uniq:
+        if len(picked) >= FEED_MAX:
+            break
+        if id(x) not in chosen:
+            picked.append(x)
+    feed = sorted(picked, key=lambda v: -v["time"])[:FEED_MAX]
 
     cd = cal_date()
     data = {

@@ -91,6 +91,7 @@
   .meter .bar .s { background: var(--sell); }
   .meter .m-val { display: flex; justify-content: space-between; font-size: .72rem; margin-top: 3px; }
   .note { font-size: .66rem; color: var(--ink3); margin-top: 14px; line-height: 1.7; }
+  .card-na { font-size: .62rem; color: var(--ink3); margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--line); line-height: 1.6; }
 
   /* ---------- オープンオーダー（OANDA） ---------- */
   .oo { margin-top: 13px; }
@@ -328,7 +329,7 @@
   </div><!-- /view-chart -->
 
   <div id="view-board" style="display:none">
-  <h2><b>売買目線</b>SENTIMENT — 7 PAIRS</h2>
+  <h2><b>売買目線</b>SENTIMENT — 11 PAIRS</h2>
   <div class="cal-tools">
     <button class="chip reload-btn">↻ 最新に更新</button>
     <span class="cal-stamp"></span>
@@ -443,7 +444,9 @@
 <script>
 (function () {
   var PAIR_LABELS = { USDJPY: "ドル円", EURUSD: "ユーロドル", GBPUSD: "ポンドドル", AUDUSD: "豪ドルドル",
-                      EURJPY: "ユーロ円", GBPJPY: "ポンド円", AUDJPY: "豪ドル円" };
+                      NZDUSD: "キウイドル", USDCHF: "ドルスイス",
+                      EURJPY: "ユーロ円", GBPJPY: "ポンド円", AUDJPY: "豪ドル円",
+                      NZDJPY: "キウイ円", CHFJPY: "スイス円" };
   var state = { pair: "ALL", stance: "ALL", limit: 20, data: null };
 
   function esc(s) {
@@ -529,7 +532,10 @@
             '<div><span class="sw" style="background:var(--buy)"></span>買い <b>' + s.buy + "</b>件</div>" +
             '<div><span class="sw" style="background:var(--sell)"></span>売り <b>' + s.sell + "</b>件</div>" +
             '<div><span class="sw" style="background:var(--neutral)"></span>中立 <b>' + s.neutral + "</b>件</div>" +
-          "</div></div>" + broker + oo + "</div>";
+          "</div></div>" + broker + oo +
+          (!p.broker && !p.orders
+            ? '<p class="card-na">※このペアはポジション比率・オープンオーダーの配信がないため、X投稿の目線のみ表示しています。</p>'
+            : "") + "</div>";
     }).join("");
     document.getElementById("board").innerHTML = html;
   }
@@ -627,8 +633,10 @@
   var CHART_PAIRS = [
     { s: "USDJPY", t: "ドル円" }, { s: "EURUSD", t: "ユーロドル" },
     { s: "GBPUSD", t: "ポンドドル" }, { s: "AUDUSD", t: "豪ドルドル" },
+    { s: "NZDUSD", t: "キウイドル" }, { s: "USDCHF", t: "ドルスイス" },
     { s: "EURJPY", t: "ユーロ円" }, { s: "GBPJPY", t: "ポンド円" },
-    { s: "AUDJPY", t: "豪ドル円" }
+    { s: "AUDJPY", t: "豪ドル円" }, { s: "NZDJPY", t: "キウイ円" },
+    { s: "CHFJPY", t: "スイス円" }
   ];
   var chartPair = (function () {
     try { return localStorage.getItem("fxnow_chart_pair") || "USDJPY"; }
