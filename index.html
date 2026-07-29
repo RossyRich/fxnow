@@ -171,6 +171,28 @@
   .tv-chart { height: 520px; border-radius: 6px; overflow: hidden; }
   @media (max-width: 600px) { .tv-chart { height: 420px; } }
 
+  /* ---------- 今のおすすめ通貨ペア ---------- */
+  .reco { padding: 14px 14px 12px; margin-bottom: 12px; }
+  .reco h3 {
+    font-size: .68rem; letter-spacing: .14em; color: var(--ink2);
+    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .reco h3::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .reco-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .reco-row + .reco-sub { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line); }
+  .reco-pair { font-size: 1.24rem; font-weight: 800; letter-spacing: .02em; }
+  .reco-sub .reco-pair { font-size: 1rem; }
+  .reco-dir {
+    font-size: .82rem; font-weight: 800; padding: 4px 13px; border-radius: 6px; white-space: nowrap;
+  }
+  .reco-dir.long { background: rgba(255,92,108,.16); color: var(--buy); }
+  .reco-dir.short { background: rgba(77,163,255,.16); color: var(--sell); }
+  .reco-sub .reco-dir { font-size: .74rem; padding: 3px 10px; }
+  .reco-lbl { font-size: .64rem; color: var(--ink3); letter-spacing: .08em; }
+  .reco-why { font-size: .68rem; color: var(--ink2); margin-top: 8px; line-height: 1.75; }
+  .reco-why b { color: var(--ink); }
+  .reco-none { font-size: .74rem; color: var(--ink3); line-height: 1.7; }
+
   /* ---------- 通貨強弱タブ ---------- */
   .pb-card { padding: 14px 12px 10px; }
   .pb-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
@@ -378,6 +400,8 @@
     <button class="chip reload-btn">↻ 最新に更新</button>
     <span class="cal-stamp"></span>
   </div>
+  <div class="card reco" id="pbReco"></div>
+
   <div class="card pb-card">
     <div class="pb-legend" id="pbLegend"></div>
     <div class="pb-chart-wrap">
@@ -386,7 +410,8 @@
     </div>
   </div>
   <p class="note">
-    OANDAの通貨強弱（本日6時を0とした、8通貨それぞれの強さの推移／5分足）。上にあるほど買われている通貨です。
+    <b>おすすめ通貨ペア</b>は、グラフの高さ（そこまでの累計）ではなく<b>直近の向き</b>で判定しています。30分・1時間・2時間の傾きを重み付けし、同じ向きが続いている時間が長いほど高く評価します。方向感が乏しい時は「様子見」と表示します。投資判断はご自身の責任でお願いします。<br>
+    グラフはOANDAの通貨強弱（本日6時を0とした、8通貨それぞれの強さの推移／5分足）。上にあるほど買われている通貨です。
     <b>通貨名をタップすると表示・非表示を切り替えられます</b>（次回も記憶されます）。チャートをなぞると各通貨の値が出ます。
   </p>
   </div><!-- /view-pb -->
@@ -793,6 +818,149 @@
     catch (e) { return []; }
   })();
 
+  // ---------- 今のおすすめ通貨ペア ----------
+  // 「今の強さ」＝グラフの高さではなく直近の向き。
+  // 30分/1時間/2時間の傾き（%/時）を重み付けし、同じ向きが続いた長さで補正する。
+  var PB_WINDOWS = [{ n: 6, w: 0.5 }, { n: 12, w: 0.3 }, { n: 24, w: 0.2 }];
+  // 通貨ペアの慣習的な表記順（左にあるほど基軸として先に書く）
+  var CCY_ORDER = ["EUR", "GBP", "AUD", "NZD", "USD", "CAD", "CHF", "JPY"];
+  var MAJOR_PAIRS = ["USDJPY", "EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDCHF",
+                     "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CHFJPY"];
+
+  // 最小二乗法で傾きを出す（単位: %/時。1点=5分）
+  function slopePerHour(arr, n) {
+    var pts = arr.slice(-n);
+    var m = pts.length;
+    if (m < 3) return null;
+    var sx = 0, sy = 0, sxy = 0, sxx = 0;
+    for (var i = 0; i < m; i++) { sx += i; sy += pts[i]; sxy += i * pts[i]; sxx += i * i; }
+    var den = m * sxx - sx * sx;
+    if (!den) return null;
+    return ((m * sxy - sx * sy) / den) * 12;   // 1点5分 → 12点で1時間
+  }
+
+  // その向きに動き続けている時間。1本ごとの増減だと小さな揺り戻しで0分になり、
+  // 水準だけで見ると横ばい期間まで数えてしまうので、10分幅で「実際に進んだか」を見る。
+  var TREND_STEP = 0.02;   // 10分でこれ未満の動きは横ばい扱い
+  function trendMinutes(arr, sign) {
+    var mins = 0;
+    for (var i = arr.length - 3; i >= 0; i--) {
+      var moved = arr[i + 2] - arr[i];
+      var ok = sign > 0 ? (moved > TREND_STEP) : (moved < -TREND_STEP);
+      if (!ok) break;
+      mins += 5;
+      if (mins >= 240) break;
+    }
+    return mins ? mins + 10 : 0;   // 最後の10分幅ぶんを足す
+  }
+
+  function pbScores(p) {
+    return p.names.map(function (c) {
+      var arr = p.series[c];
+      var score = 0, used = 0, s30 = null, s60 = null;
+      PB_WINDOWS.forEach(function (w) {
+        var s = slopePerHour(arr, w.n);
+        if (s === null) return;
+        if (w.n === 6) s30 = s;
+        if (w.n === 12) s60 = s;
+        score += s * w.w; used += w.w;
+      });
+      if (!used) return null;
+      score /= used;
+      var mins = trendMinutes(arr, score >= 0 ? 1 : -1);
+      // 同じ向きが続くほど評価を上げる（最大1.3倍、60分で頭打ち）
+      var factor = 1 + Math.min(mins, 60) / 60 * 0.3;
+      return {
+        c: c, score: score * factor, s30: s30, s60: s60,
+        mins: mins, level: arr[arr.length - 1]
+      };
+    }).filter(Boolean);
+  }
+
+  function quotePair(a, b) {
+    // a=買いたい通貨, b=売りたい通貨 → 慣習的な並びとロング/ショートに直す
+    var ia = CCY_ORDER.indexOf(a), ib = CCY_ORDER.indexOf(b);
+    return (ia <= ib)
+      ? { sym: a + b, base: a, quote: b, dir: "long" }
+      : { sym: b + a, base: b, quote: a, dir: "short" };
+  }
+
+  function pairName(sym) {
+    return PAIR_LABELS[sym] || (CCY_JP[sym.slice(0, 3)] + "/" + CCY_JP[sym.slice(3)]);
+  }
+
+  var CCY_JP = { USD: "ドル", EUR: "ユーロ", GBP: "ポンド", JPY: "円",
+                 CHF: "スイス", AUD: "豪ドル", CAD: "カナダ", NZD: "NZドル" };
+
+  function renderReco(d) {
+    var host = document.getElementById("pbReco");
+    var p = d.powerBalance;
+    if (!p || !p.names || !p.series || p.times.length < 8) {
+      host.innerHTML = '<h3>今のおすすめ通貨ペア</h3><p class="reco-none">データを取得中です。</p>';
+      return;
+    }
+    var sc = pbScores(p);
+    if (sc.length < 2) {
+      host.innerHTML = '<h3>今のおすすめ通貨ペア</h3><p class="reco-none">判定に必要なデータが足りません。</p>';
+      return;
+    }
+    sc.sort(function (a, b) { return b.score - a.score; });
+    var top = sc[0], bot = sc[sc.length - 1];
+
+    // 動きが小さすぎる時は無理に出さない
+    if (top.score - bot.score < 0.25) {
+      host.innerHTML = '<h3>今のおすすめ通貨ペア</h3>' +
+        '<p class="reco-none">今はどの通貨も方向感が乏しく、はっきりした強弱が出ていません。' +
+        '（様子見が無難な場面です）</p>';
+      return;
+    }
+
+    var best = quotePair(top.c, bot.c);
+    var dirJp = function (dir) { return dir === "long" ? "ロング（買い）" : "ショート（売り）"; };
+    var arrow = function (v) { return v >= 0 ? "↗" : "↘"; };
+
+    // メジャー通貨ペアの中での最良（強弱差が最大になる組み合わせ）
+    var byC = {};
+    sc.forEach(function (x) { byC[x.c] = x; });
+    var major = null;
+    MAJOR_PAIRS.forEach(function (sym) {
+      var a = byC[sym.slice(0, 3)], b = byC[sym.slice(3)];
+      if (!a || !b) return;
+      var diff = Math.abs(a.score - b.score);
+      if (!major || diff > major.diff) {
+        major = { sym: sym, diff: diff,
+                  dir: (a.score >= b.score) ? "long" : "short",
+                  strong: (a.score >= b.score) ? a : b,
+                  weak: (a.score >= b.score) ? b : a };
+      }
+    });
+
+    var html = '<h3>今のおすすめ通貨ペア</h3>' +
+      '<div class="reco-row">' +
+        '<span class="reco-lbl">理論上の最良</span>' +
+        '<span class="reco-pair">' + esc(pairName(best.sym)) + "</span>" +
+        '<span class="reco-dir ' + best.dir + '">' + dirJp(best.dir) + "</span>" +
+      "</div>" +
+      '<p class="reco-why">' +
+        "最強は<b>" + esc(CCY_JP[top.c]) + "</b>（直近30分 " + arrow(top.s30) + " " +
+        (top.s30 >= 0 ? "+" : "") + top.s30.toFixed(2) + "／" + top.mins + "分継続）、" +
+        "最弱は<b>" + esc(CCY_JP[bot.c]) + "</b>（同 " + arrow(bot.s30) + " " +
+        (bot.s30 >= 0 ? "+" : "") + bot.s30.toFixed(2) + "／" + bot.mins + "分継続）。" +
+      "</p>";
+
+    if (major && major.sym !== best.sym) {
+      html += '<div class="reco-row reco-sub">' +
+        '<span class="reco-lbl">メジャー通貨ペアの中で</span>' +
+        '<span class="reco-pair">' + esc(pairName(major.sym)) + "</span>" +
+        '<span class="reco-dir ' + major.dir + '">' + dirJp(major.dir) + "</span>" +
+      "</div>";
+    } else if (major) {
+      html += '<div class="reco-row reco-sub"><span class="reco-lbl">' +
+        "メジャー通貨ペアの中でも同じ組み合わせが最良です</span></div>";
+    }
+    host.innerHTML = html;
+  }
+
   function renderPB(d) {
     var p = d.powerBalance, svg = document.getElementById("pbChart");
     var legend = document.getElementById("pbLegend");
@@ -1015,6 +1183,7 @@
     document.querySelector(".updated .dot").style.background = closed ? "#626c80" : "";
     document.querySelector(".updated .dot").style.animation = closed ? "none" : "";
     renderBoard(d);
+    renderReco(d);
     renderPB(d);
     renderIdx(d);
     renderPosts(d);
