@@ -147,6 +147,21 @@
 
   /* ---------- calendar ---------- */
   /* ---------- チャートタブ ---------- */
+  /* 時間足セレクタ（選択中を中央に、前後の足をその左右に置く） */
+  .tf-wrap { position: relative; margin-bottom: 12px; }
+  .tf-row {
+    display: flex; gap: 6px; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px 0;
+  }
+  .tf-row::-webkit-scrollbar { display: none; }
+  .tf {
+    flex: none; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink2); font-family: inherit; font-size: .76rem; font-weight: 700;
+    padding: 7px 14px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  .tf.on { background: var(--buy); border-color: var(--buy); color: #fff; }
+
   .chart-card { padding: 6px; }
   .tv-chart { height: 520px; border-radius: 6px; overflow: hidden; }
   @media (max-width: 600px) { .tv-chart { height: 420px; } }
@@ -321,10 +336,11 @@
   <div id="view-chart">
   <h2><b>リアルタイムチャート</b>LIVE CHART</h2>
   <div class="chips" id="chartChips"></div>
+  <div class="tf-wrap"><div class="tf-row" id="chartTf"></div></div>
   <div class="card chart-card"><div id="tvChart" class="tv-chart"></div></div>
   <p class="note">
-    価格はリアルタイムで自動更新されます（更新ボタン不要）。チャート内の「1分・5分・1時間」などをタップすると時間足を切り替えられます。
-    指標やインジケーターの追加、拡大・縮小も可能です。
+    価格はリアルタイムで自動更新されます（更新ボタン不要）。上の<b>通貨ペア</b>と<b>時間足</b>のボタンで表示を切り替えられます（選んだ組み合わせは次回も記憶されます）。
+    チャートは指でドラッグして過去にさかのぼったり、つまんで拡大・縮小できます。
   </p>
   </div><!-- /view-chart -->
 
@@ -638,9 +654,20 @@
     { s: "AUDJPY", t: "豪ドル円" }, { s: "NZDJPY", t: "キウイ円" },
     { s: "CHFJPY", t: "スイス円" }
   ];
+  // 時間足は短い順に固定。選択中を中央に置いて前後の足をすぐ押せるようにする
+  var CHART_TFS = [
+    { v: "1", t: "1分" }, { v: "5", t: "5分" }, { v: "15", t: "15分" },
+    { v: "30", t: "30分" }, { v: "60", t: "1時間" }, { v: "240", t: "4時間" },
+    { v: "D", t: "日足" }, { v: "W", t: "週足" }
+  ];
   var chartPair = (function () {
     try { return localStorage.getItem("fxnow_chart_pair") || "USDJPY"; }
     catch (e) { return "USDJPY"; }
+  })();
+  var chartTf = (function () {
+    var v;
+    try { v = localStorage.getItem("fxnow_chart_tf"); } catch (e) {}
+    return CHART_TFS.some(function (x) { return x.v === v; }) ? v : "5";
   })();
 
   function buildChart() {
@@ -657,15 +684,47 @@
     s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     s.async = true;
     s.innerHTML = JSON.stringify({
-      autosize: true, symbol: "FX:" + chartPair, interval: "5",
+      autosize: true, symbol: "FX:" + chartPair, interval: chartTf,
       timezone: "Asia/Tokyo", theme: "dark", style: "1", locale: "ja",
       backgroundColor: "rgba(18,23,34,1)", gridColor: "rgba(35,43,61,0.5)",
+      hide_top_toolbar: true,   // 時間足は自前のボタンで切り替える
       hide_side_toolbar: true, allow_symbol_change: false, save_image: false,
       withdateranges: false, hide_volume: false
     });
     box.appendChild(inner);
     box.appendChild(s);
     host.appendChild(box);
+  }
+
+  // 素早く連続でタップされた時にチャートを何度も作り直さない（配信元に負荷をかけない）
+  var buildTimer = null;
+  function buildChartSoon() {
+    clearTimeout(buildTimer);
+    buildTimer = setTimeout(buildChart, 350);
+  }
+
+  function renderChartTf() {
+    var row = document.getElementById("chartTf");
+    row.innerHTML = CHART_TFS.map(function (f) {
+      return '<button class="tf' + (f.v === chartTf ? " on" : "") + '" data-v="' + f.v + '">' + f.t + "</button>";
+    }).join("");
+    Array.prototype.forEach.call(row.querySelectorAll(".tf"), function (b) {
+      b.onclick = function () {
+        chartTf = b.getAttribute("data-v");
+        try { localStorage.setItem("fxnow_chart_tf", chartTf); } catch (e) {}
+        renderChartTf();
+        buildChartSoon();
+      };
+    });
+    // 選択中の足が中央に来るようスクロール（全部収まる幅なら動かない）
+    var on = row.querySelector(".tf.on");
+    // アニメーションにするとチャート再生成で中断されるため即時に動かす
+    if (on) {
+      row.scrollTo({
+        left: on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2,
+        behavior: "auto"
+      });
+    }
   }
 
   function renderChartChips() {
@@ -678,7 +737,7 @@
         chartPair = b.getAttribute("data-s");
         try { localStorage.setItem("fxnow_chart_pair", chartPair); } catch (e) {}
         renderChartChips();
-        buildChart();
+        buildChartSoon();
       };
     });
   }
@@ -1004,6 +1063,7 @@
 
   render(window.FX_DATA);          // file:// でも即表示
   renderChartChips();
+  renderChartTf();
   if (location.protocol.indexOf("http") === 0) {
     buildChart();                  // 初期表示のタブなので最初から描く
     refresh();
