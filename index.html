@@ -179,16 +179,12 @@
   }
   .reco h3::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .reco-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .reco-row + .reco-sub { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line); }
   .reco-pair { font-size: 1.24rem; font-weight: 800; letter-spacing: .02em; }
-  .reco-sub .reco-pair { font-size: 1rem; }
   .reco-dir {
     font-size: .82rem; font-weight: 800; padding: 4px 13px; border-radius: 6px; white-space: nowrap;
   }
   .reco-dir.long { background: rgba(255,92,108,.16); color: var(--buy); }
   .reco-dir.short { background: rgba(77,163,255,.16); color: var(--sell); }
-  .reco-sub .reco-dir { font-size: .74rem; padding: 3px 10px; }
-  .reco-lbl { font-size: .64rem; color: var(--ink3); letter-spacing: .08em; }
   .reco-why { font-size: .68rem; color: var(--ink2); margin-top: 8px; line-height: 1.75; }
   .reco-why b { color: var(--ink); }
   .reco-none { font-size: .74rem; color: var(--ink3); line-height: 1.7; }
@@ -922,6 +918,12 @@
 
     var dirJp = function (dir) { return dir === "long" ? "ロング（買い）" : "ショート（売り）"; };
     var arrow = function (v) { return v >= 0 ? "↗" : "↘"; };
+    // 判定は30分/1時間/2時間の合成なので、根拠も合成した「勢い」で示す
+    // （30分だけを出すと「強い（↘ -0.11）」のように矛盾して見えるため）
+    var detail = function (x) {
+      var t = "（勢い " + arrow(x.score) + " " + (x.score >= 0 ? "+" : "") + x.score.toFixed(2);
+      return t + (x.mins ? "／" + x.mins + "分継続）" : "）");
+    };
     var s = best.strong, w = best.weak;
 
     host.innerHTML = '<h3>今のおすすめ通貨ペア</h3>' +
@@ -930,10 +932,10 @@
         '<span class="reco-dir ' + best.dir + '">' + dirJp(best.dir) + "</span>" +
       "</div>" +
       '<p class="reco-why">' +
-        "買い側の<b>" + esc(CCY_JP[s.c]) + "</b>が強い（直近30分 " + arrow(s.s30) + " " +
-        (s.s30 >= 0 ? "+" : "") + s.s30.toFixed(2) + "／" + s.mins + "分継続）、" +
-        "売り側の<b>" + esc(CCY_JP[w.c]) + "</b>が弱い（同 " + arrow(w.s30) + " " +
-        (w.s30 >= 0 ? "+" : "") + w.s30.toFixed(2) + "／" + w.mins + "分継続）。" +
+        "買い側の<b>" + esc(CCY_JP[s.c]) + "</b>は" +
+        (s.score >= 0 ? "上昇中" : "下げが緩やか") + detail(s) + "、" +
+        "売り側の<b>" + esc(CCY_JP[w.c]) + "</b>は" +
+        (w.score < 0 ? "下落中" : "上げが鈍い") + detail(w) + "。" +
       "</p>";
   }
 
