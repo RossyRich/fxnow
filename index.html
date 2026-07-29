@@ -225,28 +225,20 @@
   footer { margin-top: 46px; padding-top: 16px; border-top: 1px solid var(--line); font-size: .66rem; color: var(--ink3); line-height: 1.9; }
 
   /* ---------- ビュー切替タブ ---------- */
-  .tabs {
-    display: flex; gap: 4px; position: sticky; top: 0; z-index: 40;
+  /* 3列×2段。上段=チャート/通貨強弱/指数、下段=経済指標/売買目線/Xの投稿 */
+  .tabs-wrap {
+    position: sticky; top: 0; z-index: 40;
     background: var(--bg); padding: 8px 0 0; margin-top: 6px;
     border-bottom: 1px solid var(--line);
-    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tab { flex: none; }
-  /* 右にまだタブがある時のフェード表示 */
-  .tabs-wrap { position: relative; }
-  .tabs-wrap::after {
-    content: ""; position: absolute; top: 0; right: 0; bottom: 1px; width: 34px;
-    background: linear-gradient(90deg, rgba(12,15,22,0), var(--bg) 78%);
-    pointer-events: none; opacity: 0; transition: opacity .2s;
-  }
-  .tabs-wrap.has-more::after { opacity: 1; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 4px; max-width: 560px; }
   .tab {
     background: none; border: none; cursor: pointer; font-family: inherit;
-    font-size: .84rem; color: var(--ink3); font-weight: 700; letter-spacing: .06em;
-    padding: 8px 14px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    font-size: .84rem; color: var(--ink3); font-weight: 700; letter-spacing: .04em;
+    padding: 9px 6px 10px; border-bottom: 2px solid transparent;
+    border-radius: 6px 6px 0 0; white-space: nowrap;
   }
-  .tab.on { color: var(--ink); border-bottom-color: var(--buy); }
+  .tab.on { color: var(--ink); background: var(--panel); border-bottom-color: var(--buy); }
   .tab .cnt { font-size: .68rem; color: var(--buy); margin-left: 3px; }
 
   /* ---------- ホーム画面追加の案内 ---------- */
@@ -326,11 +318,11 @@
 
   <div class="tabs-wrap"><nav class="tabs">
     <button class="tab on" data-view="chart">チャート</button>
-    <button class="tab" data-view="board">売買目線</button>
     <button class="tab" data-view="pb">通貨強弱</button>
     <button class="tab" data-view="idx">指数</button>
-    <button class="tab" data-view="sns">Xの投稿</button>
     <button class="tab" data-view="cal" id="tabCal">経済指標<span class="cnt" id="calCnt"></span></button>
+    <button class="tab" data-view="board">売買目線</button>
+    <button class="tab" data-view="sns">Xの投稿</button>
   </nav></div>
 
   <div id="view-chart">
@@ -1048,17 +1040,6 @@
     bar.onclick = function () { modal.classList.add("open"); };
     document.getElementById("a2hsClose").onclick = function () { modal.classList.remove("open"); };
     modal.onclick = function (e) { if (e.target === modal) modal.classList.remove("open"); };
-  })();
-
-  // タブが右に続くときフェードを出す
-  (function () {
-    var nav = document.querySelector(".tabs"), wrap = document.querySelector(".tabs-wrap");
-    function upd() {
-      wrap.classList.toggle("has-more", nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2);
-    }
-    nav.addEventListener("scroll", upd);
-    window.addEventListener("resize", upd);
-    upd();
   })();
 
   render(window.FX_DATA);          // file:// でも即表示
